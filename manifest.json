@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "srdiogo.minifuse",
+  "name": "MiniFuse",
+  "version": "0.1.0",
+  "author": "Diogo de Medeiros",
+  "license": "MIT",
+  "description": "MiniFuse connection status and verified hardware mixer controls through mf-service.",
+  "kinds": ["service", "bar-widget", "panel"],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "MiniFuse",
+    "description": "Open MiniFuse hardware mixer controls. Separate from host audio volume.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
