@@ -54,10 +54,11 @@ Item {
                 screen: root.targetScreen
                 visible: true
                 color: Color.popups.background
-                exclusiveZone: 0
+                exclusionMode: ExclusionMode.Ignore
                 WlrLayershell.namespace: "srdiogo.minifuse"
                 WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+                onBackingWindowVisibleChanged: if (backingWindowVisible) Qt.callLater(function() { window.focusInitial() })
                 readonly property real gap: Style.spacing.lg
                 implicitWidth: Math.min(quick.implicitWidth, screen ? screen.width - gap * 2 - (root.position === "left" || root.position === "right" ? root.barSize : 0) : quick.implicitWidth)
                 implicitHeight: Math.min(quick.implicitHeight, screen ? screen.height - gap * 2 - (root.position === "top" || root.position === "bottom" ? root.barSize : 0) : quick.implicitHeight)
@@ -75,21 +76,13 @@ Item {
                 margins.right: window.gap + (root.position === "right" ? root.barSize : 0)
                 // qmllint enable unqualified
                 function focusInitial() { quick.focusInitial() }
-                HyprlandFocusGrab {
-                    id: focusGrab
-                    active: false
-                    windows: [window]
-                    onCleared: root.dismiss()
-                }
-                Timer {
-                    interval: 120
-                    running: true
-                    onTriggered: { window.focusInitial(); focusGrab.active = true }
-                }
                 Flickable {
                     anchors.fill: parent
                     contentWidth: width
                     contentHeight: quick.implicitHeight
+                    interactive: contentHeight > height + 1
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickableDirection: Flickable.VerticalFlick
                     clip: true
                     Controls.ScrollBar.vertical: Controls.ScrollBar {}
                     Components.QuickControls {
@@ -98,6 +91,56 @@ Item {
                         backend: root.backend
                         onDismissRequested: root.dismiss()
                     }
+                }
+            }
+        }
+    }
+
+    function cardGeometry(screen) {
+        if (!surface.item || !screen || !targetScreen || screen.name !== targetScreen.name)
+            return Qt.rect(0, 0, 0, 0)
+        const gap = Style.spacing.lg
+        const width = surface.item.width
+        const height = surface.item.height
+        const x = position === "left" ? gap + barSize : screen.width - gap - width - (position === "right" ? barSize : 0)
+        const y = position === "bottom" ? screen.height - gap - barSize - height : gap + (position === "top" ? barSize : 0)
+        return Qt.rect(x, y, width, height)
+    }
+
+    Variants {
+        model: root.opened ? Quickshell.screens : []
+        delegate: Component {
+            PanelWindow {
+                id: backdrop
+                required property var modelData
+                readonly property rect card: root.cardGeometry(modelData)
+                screen: modelData
+                color: "transparent"
+                exclusionMode: ExclusionMode.Ignore
+                WlrLayershell.namespace: "srdiogo.minifuse.dismiss"
+                WlrLayershell.layer: WlrLayer.Overlay
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+                anchors { top: true; bottom: true; left: true; right: true }
+                mask: Region {
+                    width: backdrop.width
+                    height: backdrop.height
+                    Region {
+                        intersection: Intersection.Subtract
+                        x: backdrop.card.x; y: backdrop.card.y
+                        width: backdrop.card.width; height: backdrop.card.height
+                    }
+                    Region {
+                        intersection: Intersection.Subtract
+                        x: root.position === "right" ? backdrop.width - root.barSize : 0
+                        y: root.position === "bottom" ? backdrop.height - root.barSize : 0
+                        width: root.position === "left" || root.position === "right" ? root.barSize : backdrop.width
+                        height: root.position === "top" || root.position === "bottom" ? root.barSize : backdrop.height
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                    onPressed: root.dismiss()
                 }
             }
         }

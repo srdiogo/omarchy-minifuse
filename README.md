@@ -17,7 +17,9 @@ The layout takes inspiration from the channel strips and monitor separation in
 and the [official MiniFuse 4 control center](https://downloads.arturia.net/products/minifuse-4/manual/minifuse-4_Manual_1_0_0_EN.pdf).
 It uses original QML components and the active Omarchy palette, fonts and scale.
 Sources scroll horizontally on smaller displays while the master stays visible.
-Status messages occupy a fixed footer and never move the faders.
+Status messages occupy a fixed footer and never move the faders. M/S indications
+follow confirmed state independently of keyboard focus. The bar icon toggles the
+panel, and clicking outside on any monitor dismisses it.
 
 ![Mixer layout with illustrative fixture data](preview.png)
 
@@ -53,8 +55,8 @@ gestures coalesce intermediate movement and preserve the release value. A
 bypassed custom mix has its controls disabled with an explanation. Mute/solo
 use advertised channel operations; no hardware master-mute selector is invented.
 Each strip displays one advertised source. Stereo pair members remain separate
-channels, without an invented linked-write policy. Meters are read only while
-the panel is open and expire after 500 ms without a valid sample.
+channels, without an invented linked-write policy. Meter subscriptions follow panel visibility after active control work settles;
+samples expire after 500 ms without a valid sample.
 INST/+48 V are read-only indicators here; their controls live in the full app.
 
 ## Development
@@ -63,10 +65,11 @@ INST/+48 V are read-only indicators here; their controls live in the full app.
 python3 tools/check_project.py
 python3 -m unittest discover -s tests -v
 python3 tools/check_host.py
+python3 tools/check_interactions.py
 python3 tools/run_preview.py
 ```
 
-The first three commands use contract fixtures and an isolated host configuration;
+The first four commands use contract fixtures and an isolated host configuration;
 they do not change device settings. The last command opens the real panel against
 the running service, separately from the user's bar, and can control hardware.
 Its operation evidence uses a separate persistent preview state directory.

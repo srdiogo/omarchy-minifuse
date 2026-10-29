@@ -97,3 +97,11 @@ operation recovery and no-replay tests remain in place. These are deterministic
 fixture tests; the new source control paths have not been revalidated against
 physical hardware. The previously recorded hardware evidence applies only to
 the controls and versions explicitly listed above.
+
+
+The installed user service and matching DKMS transport were validated on
+7.2.5-3-omarchy with the MiniFuse 4. Twenty meter samples arrived at approximately
+20 Hz without changing the decoded mixer or its revision. A producer-shaped
+subscription test rejects a second subscription on the same socket; visibility
+changes must replace idle connections, preserving active gesture settlement.
+Disconnected-view construction and destruction are covered by the host check.

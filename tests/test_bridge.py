@@ -158,6 +158,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def peer(self, reader, writer):
         self.peers.append(writer)
+        subscribed = False
         try:
             while raw := await reader.readline():
                 request = json.loads(raw)
@@ -167,6 +168,12 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                 if method == "hello":
                     result = FIXTURE["hello"]["result"]
                 elif method == "subscribe":
+                    if subscribed:
+                        error = {
+                            "code": "invalid_request",
+                            "message": "One subscription per connection; reconnect to change filters",
+                        }
+                    subscribed = True
                     caps = {**self.state["capabilities"], "mixer": not self.unsupported}
                     device = {
                         "device_id": "fixture-device_id",
@@ -377,17 +384,30 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             [{"kind": "channel", "mix": "out12", "source": "analog1", "solo": True}],
         )
 
-    async def test_meters_are_visible_only_ephemeral_and_expire(self):
+    async def reconnecting_application(self):
+        self.running.cancel()
+        await asyncio.gather(self.running, return_exceptions=True)
+        self.requests.clear()
+        self.running = asyncio.create_task(self.app.connect())
         await until(lambda: self.app.connected)
+        self.session = self.app.session
+
+    async def test_meters_are_visible_only_ephemeral_and_expire(self):
+        await self.reconnecting_application()
         self.assertNotIn("meters_updated", self.requests[1]["params"]["events"])
         self.state["capabilities"]["signal_meters"] = True
         self.app.command({"action": "watch", "value": True})
         await until(
             lambda: len([r for r in self.requests if r["method"] == "subscribe"]) == 2
         )
-        await until(lambda: self.app.state["capabilities"]["signal_meters"])
+        await until(
+            lambda: (
+                self.app.connected and self.app.state["capabilities"]["signal_meters"]
+            )
+        )
+        self.assertIsNot(self.session, self.app.session)
         initial = copy.deepcopy(self.app.state)
-        await self.event(self.peers[0], "meters_updated", FIXTURE["meters"]["data"])
+        await self.event(self.peers[-1], "meters_updated", FIXTURE["meters"]["data"])
         await until(lambda: self.app.meters is not None)
         self.assertEqual(self.app.state, initial)
         self.assertFalse(self.store.data.get("pending"))
@@ -402,7 +422,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_visibility_subscription_preserves_recovery_warning(self):
-        await until(lambda: self.app.connected)
+        await self.reconnecting_application()
         self.app.uncertain = True
         self.app.message = "Outcome uncertain; inspect before acknowledging"
         self.app.command({"action": "watch", "value": True})
@@ -415,6 +435,33 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             self.app.message, "Outcome uncertain; inspect before acknowledging"
         )
         self.assertFalse(self.app.writable())
+
+    async def test_service_rejects_a_second_subscription_on_the_same_socket(self):
+        await until(lambda: self.app.connected)
+        with self.assertRaises(bridge.ApiError) as error:
+            await self.session.request("subscribe", {"events": bridge.EVENTS})
+        self.assertEqual(error.exception.error["code"], "invalid_request")
+
+    async def test_visibility_waits_for_the_active_gesture_to_settle(self):
+        await self.reconnecting_application()
+        self.hold.clear()
+        self.app.command({"action": "master", "value": -12, "finish": False})
+        await until(lambda: bool(self.method_requests("update_control")))
+        self.app.command({"action": "watch", "value": True})
+        await asyncio.sleep(0.2)
+        self.assertEqual(len(self.method_requests("subscribe")), 1)
+        self.assertIs(self.app.session, self.session)
+        self.app.command({"action": "master", "value": -6, "finish": True})
+        self.hold.set()
+        await until(lambda: len(self.method_requests("subscribe")) == 2)
+        await until(lambda: self.app.connected)
+        self.assertIsNot(self.app.session, self.session)
+        self.assertEqual(len(self.method_requests("begin_control")), 1)
+        self.assertEqual(
+            self.method_requests("update_control")[-1]["params"]["value"], -6
+        )
+        self.assertTrue(self.method_requests("update_control")[-1]["params"]["finish"])
+        self.assertFalse(self.store.data.get("pending"))
 
     async def test_meter_identity_and_shapes_are_checked(self):
         await until(lambda: self.app.connected)

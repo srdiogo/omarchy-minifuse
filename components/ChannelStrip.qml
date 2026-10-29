@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
-import qs.Ui as Ui
 import "." as Components
 
 Rectangle {
@@ -15,8 +14,9 @@ Rectangle {
     property bool metersAvailable: false
     property bool master: false
     property bool writable: false
-    property bool busy: false
-    property var liveTarget: null
+    property var controlState: ({busy: false, live_target: null})
+    readonly property bool busy: !!controlState.busy
+    readonly property var liveTarget: controlState.live_target || null
     signal edit(string action, var value, bool finish)
     readonly property bool included: master || !!channel && !!channel.included
     readonly property bool ownLevel: !!liveTarget && liveTarget.kind === (master ? "master_level" : "channel_level") && (master || liveTarget.source === source)
@@ -32,11 +32,30 @@ Rectangle {
     border.width: master ? 1 : 0
     radius: Style.cornerRadius
 
+    function controlAllowed(kind) {
+        const state = controlState
+        const target = state.live_target
+        const own = !!target && target.kind === kind && (master || target.source === source)
+        return !state.busy || own
+    }
     function levelText(value) { return value === null ? "−∞ dB" : Number(value).toFixed(1) + " dB" }
     function sendLevel(finish) {
         edit(master ? "master" : "level", level.value < minimumDb - 0.5 ? null : Math.max(minimumDb, level.value), finish)
     }
     function sendPan(finish) { edit("pan", pan.value, finish) }
+
+    // Slider.moved can precede pressedChanged on the initial pointer press.
+    // Dispatch after that event; release cancels the deferred sample and flushes.
+    Timer {
+        id: levelDispatch
+        interval: 0
+        onTriggered: if (level.enabled) root.sendLevel(!level.pressed)
+    }
+    Timer {
+        id: panDispatch
+        interval: 0
+        onTriggered: if (pan.enabled) root.sendPan(!pan.pressed)
+    }
 
     ColumnLayout {
         id: body
@@ -87,13 +106,14 @@ Rectangle {
                 }
                 Components.MasterFader {
                     id: pan
+                    objectName: "pan-" + root.source
                     from: 0; to: 1; stepSize: 0.01
                     Layout.fillWidth: true
                     Layout.preferredHeight: Style.space(24)
-                    enabled: !root.master && root.included && root.writable && (!root.busy || root.ownPan)
+                    enabled: !root.master && root.included && root.writable && root.controlAllowed("channel_pan")
                     Accessible.name: root.title + " pan"
-                    onMoved: root.sendPan(!pressed)
-                    onPressedChanged: if (!pressed && enabled) root.sendPan(true)
+                    onMoved: panDispatch.restart()
+                    onPressedChanged: if (!pressed) { panDispatch.stop(); if (enabled) root.sendPan(true) }
                 }
                 Binding {
                     target: pan; property: "value"
@@ -110,22 +130,24 @@ Rectangle {
                 anchors.fill: parent
                 spacing: Style.spacing.xs
                 visible: !root.master
-                Ui.Button {
+                Components.StateButton {
+                    objectName: "mute-" + root.source
                     text: "M"
                     tooltipText: "Mute " + root.title
-                    selected: !!root.channel && !!root.channel.mute
-                    focusable: true
-                    horizontalPadding: Style.spacing.xs
+                    active: !!root.channel && !!root.channel.mute
+                    Accessible.name: tooltipText
+                    Layout.preferredWidth: Style.space(34)
                     Layout.fillWidth: true
                     enabled: root.included && root.writable && !root.busy
                     onClicked: root.edit("mute", !root.channel.mute, true)
                 }
-                Ui.Button {
+                Components.StateButton {
+                    objectName: "solo-" + root.source
                     text: "S"
                     tooltipText: "Solo " + root.title
-                    selected: !!root.channel && !!root.channel.solo
-                    focusable: true
-                    horizontalPadding: Style.spacing.xs
+                    active: !!root.channel && !!root.channel.solo
+                    Accessible.name: tooltipText
+                    Layout.preferredWidth: Style.space(34)
                     Layout.fillWidth: true
                     enabled: root.included && root.writable && !root.busy
                     onClicked: root.edit("solo", !root.channel.solo, true)
@@ -162,13 +184,14 @@ Rectangle {
             }
             Components.LevelFader {
                 id: level
+                objectName: root.master ? "master-fader" : "level-" + root.source
                 anchors { left: scale.right; top: parent.top; bottom: parent.bottom }
                 minimumDb: root.minimumDb
                 maximumDb: root.maximumDb
-                enabled: root.included && root.writable && (!root.busy || root.ownLevel)
+                enabled: root.included && root.writable && root.controlAllowed(root.master ? "master_level" : "channel_level")
                 Accessible.name: root.title + " level"
-                onMoved: root.sendLevel(!pressed)
-                onPressedChanged: if (!pressed && enabled) root.sendLevel(true)
+                onMoved: levelDispatch.restart()
+                onPressedChanged: if (!pressed) { levelDispatch.stop(); if (enabled) root.sendLevel(true) }
             }
             Binding {
                 target: level; property: "value"

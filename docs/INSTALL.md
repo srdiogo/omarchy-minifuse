@@ -88,3 +88,17 @@ Disabling/removing the plugin leaves the device's current configuration, CLI,
 service, full application and user presets usable. Review client evidence
 separately before deliberately deleting user-owned state. No packaged Omarchy
 file, PipeWire routing or global audio configuration is changed by removal.
+
+
+## Floating application window
+
+To open the standalone mixer as a floating utility window on Omarchy, copy
+`packaging/hyprland/minifuse.lua` to `~/.config/hypr/minifuse.lua`, then add
+`require("hypr.minifuse")` after Omarchy defaults in the user `hyprland.lua`.
+Run `hyprctl reload` and verify that `hyprctl configerrors` reports no errors.
+The rule matches only `io.github.srdiogo.MiniFuseControl`, leaves application
+size under user control and centers newly opened windows. Existing windows
+need to be floated once if they were opened before the rule was installed.
+The panel closes when opening the full mixer so its overlay does not retain
+keyboard or pointer ownership. Plugin installation does not apply this user
+window policy automatically.

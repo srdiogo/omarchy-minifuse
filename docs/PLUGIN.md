@@ -73,8 +73,11 @@ pinned host, including text, spacing and focus states. The normal status slot
 has fixed height so confirmations do not move controls. The panel uses a native Wayland overlay layer with zero exclusive zone. It opens
 on the invoking bar screen (or focused monitor for direct summons), respects
 bar position and available screen size, and scrolls on short screens. It never
-enters the tiling layout. A focus grab starts after the surface maps; outside
-clicks, Escape and Close dismiss it. Its summon target also works without a
+enters the tiling layout. Each fresh surface uses on-demand keyboard focus so compositor pointer
+hit-testing can reach outside dismissal surfaces immediately.
+Transparent surfaces on every screen exclude the card and bar from their input
+masks. Outside clicks, Escape and Close dismiss the panel; the bar icon uses the
+host toggle action. Its summon target also works without a
 visible bar widget.
 Escape, Close and normal window dismissal return ownership to the host.
 
@@ -91,12 +94,16 @@ hardware custom mix, before a destination's route selector. A direct route
 bypasses custom mix controls, which remain disabled. A fixed footer distinguishes
 read-only input indicators, operation feedback and the full-app launcher.
 
-Panel visibility updates the existing connection's subscription. The optional
+Each connection admits one immutable subscription. A visibility change replaces
+the idle connection and obtains a fresh atomic baseline with the requested meter
+filter. This deliberate replacement reconnects immediately; transport failures
+still use the normal backoff. An active gesture or discrete operation settles
+before replacement, preserving its final value and durable identity. The optional
 `signal_meters` service feature and device capability gate meter display.
 Samples require the current device/generation and bounded numeric arrays;
 silence is null and unavailability is distinct from silence. Samples expire
-after 500 ms. Hidden panels unsubscribe, and helper restarts restore the
-panel's requested visibility. Meters never change revisions or operation state.
+after 500 ms. Hidden panels drop meter subscriptions after current control work settles, and
+helper restarts restore the panel's requested visibility. Meters never change revisions or operation state.
 Reliable input switch readback remains displayed without a panel write path.
 
 The plugin never independently reacts to `control_panel_requested`. The separate
@@ -117,3 +124,18 @@ archive. The selected public source matches the installed host's registry,
 scoped shell facade, UI controls, style and shell loader. `contract.lock.json`
 pins the producer revision and SHA-256 of the canonical fixtures. These pins
 are acceptance references, not a claim that all future versions are compatible.
+
+
+## Pointer interaction
+
+Source/pan/master gestures read the busy flag and gesture target from the same
+view object. This avoids briefly disabling a pressed slider while bindings
+update, which would cancel its mouse grab. Initial movement is deferred to the
+next event-loop turn so Qt can update the pressed state; release cancels that
+deferred sample and flushes the final value exactly once. Mute/solo buttons
+draw their confirmed active state independently of focus. Isolated pointer tests
+exercise both switches, one-press drags and bar toggling without device access.
+
+The full-app action dismisses the panel before transferring focus to the GUI.
+The supplied user Hyprland rule keeps MiniFuse Control floating and centered;
+this desktop policy remains separate from the GUI and device service.

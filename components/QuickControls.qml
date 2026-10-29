@@ -146,8 +146,7 @@ Rectangle {
                             title: root.sourceLabel(source)
                             subtitle: channel && !channel.included ? "OUTSIDE MIX" : source.startsWith("analog") ? "INPUT" : "PLAYBACK"
                             writable: root.mixWritable
-                            busy: !!root.model.busy
-                            liveTarget: root.model.live_target || null
+                            controlState: root.model
                             meterLevels: root.sourceMeter(source)
                             metersAvailable: !!root.meters
                             onEdit: function(action, value, finish) { root.editSource(source, action, value, finish) }
@@ -163,8 +162,7 @@ Rectangle {
                 subtitle: root.selected ? root.mixLabel(root.selected.mix) : "Unavailable"
                 channel: root.selected
                 writable: root.mixWritable
-                busy: !!root.model.busy
-                liveTarget: root.model.live_target || null
+                controlState: root.model
                 meterLevels: root.meters && root.selected ? root.meters.mixes[["out12", "out34", "loopback"].indexOf(root.selected.mix)] || [] : []
                 metersAvailable: !!root.meters
                 onEdit: function(action, value, finish) { root.send({action: action, value: value, finish: finish}) }
@@ -227,10 +225,11 @@ Rectangle {
                 onClicked: root.send({action: "acknowledge"})
             }
             Ui.Button {
+                objectName: "open-full-mixer"
                 text: "Open full mixer ↗"
                 bordered: true
                 focusable: true
-                onClicked: root.send({action: "open_app"})
+                onClicked: { root.send({action: "open_app"}); root.dismiss() }
             }
         }
     }

@@ -11,20 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--host", type=Path, default=Path("/usr/share/omarchy/shell"))
-    parser.add_argument(
-        "--visible", action="store_true", help="Show the independent test window"
-    )
-    parser.add_argument("--capture", type=Path)
-    parser.add_argument("--width", type=int)
-    parser.add_argument(
-        "--scenario",
-        choices=["normal", "direct", "offline", "uncertain", "meters"],
-        default="normal",
-    )
-    args = parser.parse_args()
+def fixture_view():
     fixture = json.loads((ROOT / "tests/contract/v1.json").read_text())
     state = fixture["input_state"]["result"]
     import importlib.util
@@ -33,7 +20,7 @@ def main():
     bridge = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bridge)
     reduced, _ = bridge.state_view(state)
-    view = dict(
+    return dict(
         status="Confirmed device state",
         connected=True,
         can_write=True,
@@ -48,6 +35,23 @@ def main():
         mixes=reduced,
         inputs=state["state"]["inputs"],
     )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host", type=Path, default=Path("/usr/share/omarchy/shell"))
+    parser.add_argument(
+        "--visible", action="store_true", help="Show the independent test window"
+    )
+    parser.add_argument("--capture", type=Path)
+    parser.add_argument("--width", type=int)
+    parser.add_argument(
+        "--scenario",
+        choices=["normal", "direct", "offline", "uncertain", "meters"],
+        default="normal",
+    )
+    args = parser.parse_args()
+    view = fixture_view()
     if args.scenario == "meters":
         view["meters"] = {
             "sources": [-24, -35, None, None, -15, -15, -30, -30, None, None],
@@ -107,6 +111,7 @@ ShellRoot {
         id: facade
         function serviceFor(id) { return id === "srdiogo.minifuse" ? backend : null }
         function summon(id, payload) { return true }
+        function toggle(id, payload) { return true }
         function hide(id) { return true }
     }
     QtObject {

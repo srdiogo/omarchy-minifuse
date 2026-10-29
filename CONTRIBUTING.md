@@ -18,6 +18,7 @@ python3 -m unittest discover -s tests -v
 ruff check client tests tools --select E4,E7,E9,F
 ruff format --check client tests tools
 python3 tools/check_host.py
+python3 tools/check_interactions.py
 ```
 
 CI pins Ruff 0.17.3. Host checks need Quickshell and the Omarchy modules selected

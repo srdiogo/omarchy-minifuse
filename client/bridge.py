@@ -207,6 +207,10 @@ class Store:
         os.close(self.lock)
 
 
+class SubscriptionRefresh(Exception):
+    """Replace the connection after its current control work has settled."""
+
+
 class ApiError(Exception):
     def __init__(self, error):
         self.error = error
@@ -392,8 +396,12 @@ class Session:
             self.app.publish()
             while not reader.done():
                 desired = self.app.visible and "signal_meters" in self.features
-                if desired != self.watching_meters:
-                    await self.subscribe()
+                if (
+                    desired != self.watching_meters
+                    and not self.live
+                    and (not self.task or self.task.done())
+                ):
+                    raise SubscriptionRefresh()
                 if self.app.meters and time.monotonic() - self.app.meter_time > 0.5:
                     self.app.meters = None
                     self.app.publish()
@@ -1096,8 +1104,11 @@ class Application:
     async def connect(self):
         while True:
             self.session = Session(self)
+            refreshing = False
             try:
                 await self.session.run()
+            except SubscriptionRefresh:
+                refreshing = True
             except (
                 OSError,
                 ValueError,
@@ -1112,12 +1123,15 @@ class Application:
                     self.session.writer.close()
                 self.connected = False
                 self.state = None
-                self.status = "Service unavailable"
+                self.status = (
+                    "Refreshing signal meters" if refreshing else "Service unavailable"
+                )
                 self.can_acknowledge = False
                 if self.store.data.get("pending"):
                     self.uncertain = True
                 self.publish()
-            await asyncio.sleep(2)
+            if not refreshing:
+                await asyncio.sleep(2)
 
     async def commands(self):
         reader = asyncio.StreamReader(limit=MAX_COMMAND)
