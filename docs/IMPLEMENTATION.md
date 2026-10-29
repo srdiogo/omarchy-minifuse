@@ -26,7 +26,9 @@ until its implementation and supported version are released.
 - Canonical wire fixtures: version negotiation, fragmented frames, capabilities,
   baseline ordering, errors, outcome query, reconnect and bounded subscriptions.
 - Component construction, server refresh and theme changes send zero mutations.
-- Slider release commits once; unsupported operations have no dispatch path.
+- Slider input is coalesced with one sample in flight; release preserves the
+  latest final value. Own confirmations keep the preview stable; external
+  changes close stale gestures. Unsupported operations have no dispatch path.
 - Missing/incompatible service or module is visible and leaves writes disabled.
 - Unload/reload closes owned connections without transaction replay.
 - No direct USB, privileged command, kernel installation or arbitrary shell

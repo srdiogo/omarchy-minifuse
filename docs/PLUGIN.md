@@ -33,8 +33,12 @@ state events and reconnect after service restart/gaps. Never synchronously
 launch `mf-cli` for every slider movement or parse human-readable terminal text.
 
 Use domain plans/apply and operation identity from the canonical service
-contract. The initial master slider previews locally and applies on release.
-Show verified state only after completion; a timeout requires outcome query,
+contract, including the negotiated `live_controls` feature. Read state on
+connection and follow subscriptions; manual refresh belongs in diagnostics. The
+master slider renders locally, sends coalesced intermediate samples and
+preserves its final value on release. Use one in-flight sample plus one latest
+desired value, with the service retaining per-sample evidence.
+Show verified state only after settlement; a timeout requires outcome query,
 not a new write. The shell event loop never performs blocking hardware work.
 
 Omarchy plugins run in the shared shell process. Keep the adapter small, bound
@@ -46,7 +50,7 @@ replays a transaction already admitted by the service.
 
 - Device/connection state and a concise unavailable/error explanation.
 - Selected mix and its confirmed route; make bypassed-master behavior clear.
-- Master configured level with numeric value, explicit commit feedback and
+- Master configured level with numeric value, continuous adjustment feedback and
   supported mute affordances. Do not invent a hardware master-mute selector;
   any UI mute must use an explicitly designed core operation/capability.
 - Preset inspection/restore planning with an explicit apply step, or opening
@@ -75,8 +79,15 @@ remain explicit optional session configuration.
 
 - [Omarchy shell/plugin contract](https://github.com/basecamp/omarchy/blob/quattro/shell/README.md)
 - [Quickshell overview](https://quickshell.org/about/)
-- [Quickshell local socket](https://quickshell.org/docs/v0.2.1/types/Quickshell.Io/Socket/)
+- [Quickshell local socket](https://quickshell.org/docs/v0.3.1/types/Quickshell.Io/Socket/)
 
 These sources informed the design; dependency versions are not pinned by a URL
 to a moving documentation branch. Record a tested host release/commit in the
 first implementation's compatibility table.
+
+## Service contract baseline
+
+`contract.lock.json` pins the implemented service revision and canonical fixture
+SHA-256, including continuous-control admission/intermediate/final results. This
+is an implementation prerequisite; it does not advertise a functioning plugin
+or claim a tested host compatibility range.

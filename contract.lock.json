@@ -1,0 +1,7 @@
+{
+  "api_major": 1,
+  "source_project": "mf-service",
+  "revision": "f021178b7ec4766036edf8a72eba82314bd8322e",
+  "fixture": "tests/contract/v1.json",
+  "sha256": "f4c4ed32eaec86b43883c5d060137e8b0cea853994053310c65fdffa8726be24"
+}
