@@ -63,6 +63,7 @@ import Quickshell
 import qs.Commons
 import "services" as Services
 import "Plugin" as Plugin
+import "Plugin/components" as Components
 ShellRoot {
     id: root
     property int dispatches: 0
@@ -79,8 +80,8 @@ ShellRoot {
     QtObject {
         id: facade
         function serviceFor(id) { return id === "srdiogo.minifuse" ? backend : null }
-        function summon(id, payload) { panel.open(payload); return true }
-        function hide(id) { panel.close(); return true }
+        function summon(id, payload) { return true }
+        function hide(id) { return true }
     }
     QtObject {
         id: bar
@@ -90,38 +91,37 @@ ShellRoot {
     }
     Plugin.Service { id: realEntry }
     Plugin.BarWidget { id: widget; bar: bar }
-    Plugin.Panel { id: panel; shell: facade; service: backend }
+    FloatingWindow {
+        visible: true
+        implicitWidth: panel.implicitWidth
+        implicitHeight: panel.implicitHeight
+        color: Color.popups.background
+        Components.QuickControls { id: panel; anchors.fill: parent; backend: backend }
+    }
     Component.onCompleted: {
         if (!registry.validateManifest(MANIFEST, "test")) throw new Error("Manifest rejected by host")
-        panel.open("{}")
+        panel.focusInitial()
     }
     Timer {
         interval: 500
         running: true
         onTriggered: {
-            if (!panel.opened || !panel.selected || !widget.backend) throw new Error("Entrypoint integration failed")
+            if (!panel.selected || !widget.backend) throw new Error("Entrypoint integration failed")
             if (realEntry.model.connected || realEntry.model.status !== "Service unavailable") throw new Error("Real service entrypoint lifecycle failed")
             const initial = root.dispatches
             Color.accent = "#88c0d0"
             Color.background = "#20242c"
             root.model = Object.assign({}, root.model, {message: "", busy: false})
             if (root.dispatches !== initial || initial !== 0) throw new Error("Construction/theme/readback dispatched a command")
-            panel.close()
-            panel.open("{}")
-            if (root.dispatches !== 0) throw new Error("Summon lifecycle dispatched a command")
+            panel.focusInitial()
+            if (root.dispatches !== 0) throw new Error("Focus update dispatched a command")
             console.log("HOST_CHECK_PASSED")
             if (CAPTURE !== "") {
-                const objects = panel.resources
-                for (let i=0; i<objects.length; ++i) {
-                    if (objects[i].contentItem) {
-                        objects[i].contentItem.children[0].grabToImage(function(result) {
-                            result.saveToFile(CAPTURE)
-                            Qt.quit()
-                        })
-                        return
-                    }
-                }
-                throw new Error("Capture surface unavailable")
+                panel.grabToImage(function(result) {
+                    result.saveToFile(CAPTURE)
+                    Qt.quit()
+                })
+                return
             }
             Qt.quit()
         }
@@ -175,7 +175,7 @@ ShellRoot {
             raise SystemExit("Host construction check failed")
         print(output)
         print(
-            "Isolated host construction, manifest, summon and zero-write checks passed."
+            "Isolated host service/bar/content construction, manifest and zero-write checks passed."
         )
 
 

@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 
 Item {
@@ -15,7 +16,7 @@ Item {
     Accessible.name: "Open MiniFuse quick controls"
     function open() {
         if (bar && bar.shell)
-            bar.shell.summon(moduleName, "{}")
+            bar.shell.summon(moduleName, JSON.stringify({screen: root.QsWindow.window ? root.QsWindow.window.screen.name : "", position: bar.position, barSize: bar.barSize}))
     }
     Keys.onReturnPressed: open()
     Keys.onEnterPressed: open()

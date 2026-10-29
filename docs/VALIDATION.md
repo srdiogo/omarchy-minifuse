@@ -15,20 +15,21 @@ retention of an admitted gesture after a later rejected sample, identity-store
 failure before admission, exclusive ownership and private archival files.
 
 `tools/check_project.py` validates manifest paths, fixture SHA-256 and bridge
-help. QML lint suppresses two host metadata categories: QObject-backed dynamic
-style/facade members and the C++ QProcess exit-status enum absent from QML
-metadata. Real component construction checks those paths at runtime; other
-lint diagnostics remain enabled.
+help. QML lint suppresses host metadata categories for QObject-backed dynamic
+style/facade members, the absent C++ QProcess exit-status enum and runtime-selected
+PanelWindow backend types. Real component and Wayland surface checks exercise
+these paths; other lint diagnostics remain enabled.
 
 ## Host components
 
 `tools/check_host.py` constructs the actual service entrypoint, bar widget and
-panel inside an independent configuration, using the installed or pinned host's
-Commons/Ui and PluginRegistry. It validates the manifest with the host, opens
-and closes the panel, follows a readback change and changes theme tokens while
-asserting zero command dispatches. The real helper entrypoint also starts and
-reports the deliberately unavailable test service. No installed bar configuration
-is used. A rendered panel was inspected for layout and contrast.
+shared QuickControls content inside an independent offscreen configuration,
+using the installed or pinned host's Commons/Ui and PluginRegistry. It validates
+the manifest with the host, follows a readback change and changes theme tokens
+while asserting zero command dispatches. The real helper entrypoint also starts
+and reports the deliberately unavailable test service. A rendered panel was
+inspected for layout and contrast. Offscreen Qt has no layer-shell backend, so
+native panel mapping/summon/focus behavior is checked in the real Wayland session.
 
 The pinned Omarchy 4.0.4 source matches the installed 4.0.4-1 host's registry,
 scoped facade, shell loader, Button, Dropdown and Style files. Runtime baseline:

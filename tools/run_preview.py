@@ -43,6 +43,7 @@ ShellRoot {
     IpcHandler {
         target: "minifuse-preview"
         function status(): string { return JSON.stringify(backend.model) }
+        function close(): void { panel.dismiss() }
     }
     Component.onCompleted: {
         panel.open("{}")

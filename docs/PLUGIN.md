@@ -69,8 +69,12 @@ Unloading/hot reload closes the connection and preserves the pending reference.
 
 The panel follows `qs.Commons.Color` and `Style` plus `qs.Ui` controls from the
 pinned host, including text, spacing and focus states. The normal status slot
-has fixed height so confirmations do not move controls. The panel uses equal minimum/maximum size hints so Hyprland treats it as a
-compact floating window; its summon target works even without a visible bar widget.
+has fixed height so confirmations do not move controls. The panel uses a native Wayland overlay layer with zero exclusive zone. It opens
+on the invoking bar screen (or focused monitor for direct summons), respects
+bar position and available screen size, and scrolls on short screens. It never
+enters the tiling layout. A focus grab starts after the surface maps; outside
+clicks, Escape and Close dismiss it. Its summon target also works without a
+visible bar widget.
 Escape, Close and normal window dismissal return ownership to the host.
 
 Mix masters are configured levels, not meters. A destination on a different

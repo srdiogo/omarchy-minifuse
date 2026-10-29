@@ -1,7 +1,7 @@
 # MiniFuse for Omarchy
 
 Quick hardware mixer controls for the Quickshell-based Omarchy shell. The bar
-indicator and floating panel share one client connection to
+indicator and layer panel share one client connection to
 [mf-service](https://github.com/srdiogo/mf-service). The standalone
 [MiniFuse Control application](https://github.com/srdiogo/minifuse-control)
 remains a separate project; Omarchy is optional for the platform.
