@@ -42,10 +42,10 @@ no shell command interpolation, root request, module loading or raw USB path.
 
 The confirmed state supplies device/generation/revision tokens and the advertised
 mix/route/source inventory. The client never derives identity from USB addresses
-or UI positions. Source mute and route actions use domain plan/apply. Plan expiry
+or UI positions. Source mute/solo and route actions use domain plan/apply. Plan expiry
 or conflict is visible; a failed plan is not rebuilt and applied automatically.
 
-Master gestures use `begin_control` and contiguous `update_control` sequences.
+Channel level, channel pan and master gestures use `begin_control` and contiguous `update_control` sequences.
 There is at most one unsettled sample and one replaceable desired value. Samples
 are separated by at least 80 ms; release remains a final sample. Acknowledgement
 is admission, not verification. Own confirmed-state events preserve the preview;
@@ -73,15 +73,38 @@ pinned host, including text, spacing and focus states. The normal status slot
 has fixed height so confirmations do not move controls. The panel uses a native Wayland overlay layer with zero exclusive zone. It opens
 on the invoking bar screen (or focused monitor for direct summons), respects
 bar position and available screen size, and scrolls on short screens. It never
-enters the tiling layout. A focus grab starts after the surface maps; outside
-clicks, Escape and Close dismiss it. Its summon target also works without a
+enters the tiling layout. Each fresh surface uses on-demand keyboard focus so compositor pointer
+hit-testing can reach outside dismissal surfaces immediately.
+Transparent surfaces on every screen exclude the card and bar from their input
+masks. Outside clicks, Escape and Close dismiss the panel; the bar icon uses the
+host toggle action. Its summon target also works without a
 visible bar widget.
 Escape, Close and normal window dismissal return ownership to the host.
 
-Mix masters are configured levels, not meters. A destination on a different
-route bypasses that custom master, so its slider is unavailable. The compact
-panel delegates preset comparison/restore and detailed meters to the full app.
-Reliable input switch readback is displayed without a panel write path.
+The horizontal strip bank keeps stable delegates during readback and meter
+updates. Each strip has aligned headings, pan, M/S, gain fader, adjacent signal
+meter and dB readout. The master remains fixed to the right while source strips
+scroll horizontally on narrow screens. Each advertised source has its own
+control; stereo pair members are not silently linked. Excluded sources are
+marked and disabled. The full app owns membership editing and preset restore.
+
+Mix gain faders use dB; signal bars use dBFS. Source meters are input/playback
+signals, not post-strip gain or mute indicators. Master meters report the
+hardware custom mix, before a destination's route selector. A direct route
+bypasses custom mix controls, which remain disabled. A fixed footer distinguishes
+read-only input indicators, operation feedback and the full-app launcher.
+
+Each connection admits one immutable subscription. A visibility change replaces
+the idle connection and obtains a fresh atomic baseline with the requested meter
+filter. This deliberate replacement reconnects immediately; transport failures
+still use the normal backoff. An active gesture or discrete operation settles
+before replacement, preserving its final value and durable identity. The optional
+`signal_meters` service feature and device capability gate meter display.
+Samples require the current device/generation and bounded numeric arrays;
+silence is null and unavailability is distinct from silence. Samples expire
+after 500 ms. Hidden panels drop meter subscriptions after current control work settles, and
+helper restarts restore the panel's requested visibility. Meters never change revisions or operation state.
+Reliable input switch readback remains displayed without a panel write path.
 
 The plugin never independently reacts to `control_panel_requested`. The separate
 desktop agent may invoke `omarchy-shell shell summon srdiogo.minifuse '{}'` when
@@ -101,3 +124,18 @@ archive. The selected public source matches the installed host's registry,
 scoped shell facade, UI controls, style and shell loader. `contract.lock.json`
 pins the producer revision and SHA-256 of the canonical fixtures. These pins
 are acceptance references, not a claim that all future versions are compatible.
+
+
+## Pointer interaction
+
+Source/pan/master gestures read the busy flag and gesture target from the same
+view object. This avoids briefly disabling a pressed slider while bindings
+update, which would cancel its mouse grab. Initial movement is deferred to the
+next event-loop turn so Qt can update the pressed state; release cancels that
+deferred sample and flushes the final value exactly once. Mute/solo buttons
+draw their confirmed active state independently of focus. Isolated pointer tests
+exercise both switches, one-press drags and bar toggling without device access.
+
+The full-app action dismisses the panel before transferring focus to the GUI.
+The supplied user Hyprland rule keeps MiniFuse Control floating and centered;
+this desktop policy remains separate from the GUI and device service.

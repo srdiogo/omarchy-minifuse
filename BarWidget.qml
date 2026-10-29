@@ -13,10 +13,10 @@ Item {
     implicitHeight: bar ? bar.barSize : Style.space(32)
     activeFocusOnTab: true
     Accessible.role: Accessible.Button
-    Accessible.name: "Open MiniFuse quick controls"
+    Accessible.name: "Toggle MiniFuse mixer panel"
     function open() {
         if (bar && bar.shell)
-            bar.shell.summon(moduleName, JSON.stringify({screen: root.QsWindow.window ? root.QsWindow.window.screen.name : "", position: bar.position, barSize: bar.barSize}))
+            bar.shell.toggle(moduleName, JSON.stringify({screen: root.QsWindow.window ? root.QsWindow.window.screen.name : "", position: bar.position, barSize: bar.barSize}))
     }
     Keys.onReturnPressed: open()
     Keys.onEnterPressed: open()
@@ -25,7 +25,7 @@ Item {
         anchors.fill: parent
         anchors.margins: Style.space(3)
         radius: Style.cornerRadius
-        color: root.activeFocus || mouse.containsMouse ? Style.hoverFill : "transparent"
+        color: root.activeFocus || mouse.containsMouse ? Style.hoverFillFor(Color.foreground, Color.accent) : "transparent"
     }
     Text {
         id: label

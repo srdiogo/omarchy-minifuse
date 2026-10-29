@@ -79,3 +79,29 @@ compositor rules were modified. The initial shell configuration was backed up.
 
 Broader device/kernel/rate/scaling coverage remains open; this report does not
 promote fixture coverage into hardware acceptance.
+
+
+## Mixer panel layout revision
+
+The redesigned panel uses original components, inspired by Omarchy360's strip
+bank and the MiniFuse 4 manual's channel/master organization. Fixture checks
+cover normal, direct-route, disconnected and uncertain states at 1080, 600 and
+480 logical pixels. Status/theme/meter updates are allowed to settle across
+frames before checking fixed footer positions and stable source delegates.
+Construction, readback, focus and theme changes must emit zero control commands.
+
+The client suite additionally verifies source-level coalescing and final release,
+fixed gesture targets, pan/silence/range gates, typed solo plans, optional meter
+subscription, stale expiry, device identity and malformed samples. Existing
+operation recovery and no-replay tests remain in place. These are deterministic
+fixture tests; the new source control paths have not been revalidated against
+physical hardware. The previously recorded hardware evidence applies only to
+the controls and versions explicitly listed above.
+
+
+The installed user service and matching DKMS transport were validated on
+7.2.5-3-omarchy with the MiniFuse 4. Twenty meter samples arrived at approximately
+20 Hz without changing the decoded mixer or its revision. A producer-shaped
+subscription test rejects a second subscription on the same socket; visibility
+changes must replace idle connections, preserving active gesture settlement.
+Disconnected-view construction and destruction are covered by the host check.

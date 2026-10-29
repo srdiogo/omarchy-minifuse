@@ -5,11 +5,14 @@ Item {
     id: root
     property var shell: null
     property var manifest: null
+    property bool panelActive: false
     property var model: ({status: "Starting MiniFuse client", message: "", connected: false,
         can_write: false, busy: false, live: false, uncertain: false,
         can_acknowledge: false, selected: "out12", mixes: [], inputs: {}})
 
     function command(value) {
+        if (value.action === "watch" && typeof value.value === "boolean")
+            panelActive = value.value
         if (helper.running)
             helper.write(JSON.stringify(value) + "\n")
     }
@@ -18,6 +21,7 @@ Item {
         id: helper
         command: ["python3", "-I", decodeURIComponent(Qt.resolvedUrl("client/bridge.py").toString().replace(/^file:\/\//, ""))]
         stdinEnabled: true
+        onStarted: if (root.panelActive) root.command({action: "watch", value: true})
         stdout: SplitParser {
             onRead: function(data) {
                 if (data.length > 32768) {

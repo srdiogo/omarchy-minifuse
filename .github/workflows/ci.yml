@@ -54,3 +54,8 @@ jobs:
           PY
           python tools/check_project.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
           python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 600 --scenario direct
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 480 --scenario uncertain
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --scenario offline
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --scenario meters
+          python tools/check_interactions.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
