@@ -21,7 +21,10 @@ Status messages occupy a fixed footer and never move the faders. M/S indications
 follow confirmed state independently of keyboard focus. The bar icon toggles the
 panel, and clicking outside on any monitor dismisses it.
 
-![Mixer layout with illustrative fixture data](preview.png)
+![MiniFuse hardware mixer panel connected to a MiniFuse 4](preview.png)
+
+*Installed Omarchy panel connected to a MiniFuse 4, showing confirmed controls
+and live signal meters.*
 
 ## Requirements and installation
 
