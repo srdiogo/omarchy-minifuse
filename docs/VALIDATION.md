@@ -59,7 +59,23 @@ validates real domain planning, not additional audible route/mute acceptance.
 No audio signal was injected. Firmware, effects, device-storage writes and
 input-switch writes were not part of this plugin test.
 
-Installed-shell enable/disable, reload subscription ownership and the optional
-application handoff are tracked separately from isolated component construction.
+## Installed Wayland shell acceptance
+
+The plugin was installed in the user-owned plugin directory and enabled through
+the host command. Three summon/hide cycles each produced exactly one native
+layer surface and one helper, with no tiled application window. The tested
+surface was 385 × 427 logical units at the current theme/font scale.
+
+Disable removed the helper. Re-enable and a full plugin rescan converged on one
+helper again. The installed GUI launcher was exercised through the same bridge
+command used by the panel; one standalone GUI instance remained alive after the
+bridge and plugin were stopped. The complete decoded device state and unrelated
+shell configuration captured at the start of this acceptance test were unchanged.
+
+This host retained a previously compiled component during a structural UI type
+change. A supported `omarchy restart shell` loaded the new implementation; this
+is distinct from an ordinary source/metadata rescan. No packaged host files or
+compositor rules were modified. The initial shell configuration was backed up.
+
 Broader device/kernel/rate/scaling coverage remains open; this report does not
 promote fixture coverage into hardware acceptance.

@@ -74,7 +74,10 @@ Use `omarchy plugin update srdiogo.minifuse` to review the incoming diff and
 fast-forward the checkout. The shell hot-reloads plugin changes. One helper
 owns the connection; unload closes it, retains uncertain references and never
 replays an accepted operation. The manifest intentionally does not keep an old
-service instance mounted across code updates.
+service instance mounted across code updates. Some host builds retain compiled
+components during structural QML changes; if a reviewed update stays stale after
+a rescan, close active controls and use `omarchy restart shell` to reload the
+implementation. Pending operation identities survive the helper restart.
 
 ```sh
 omarchy plugin disable srdiogo.minifuse
