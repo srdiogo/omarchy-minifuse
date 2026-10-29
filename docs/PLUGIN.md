@@ -1,93 +1,103 @@
-# Plugin architecture and host contract
+# Client architecture and host contract
 
-Status: proposed implementation for the inspected Quickshell-based Omarchy.
-Select and record an actual supported host/version range before release.
+The root manifest exposes `service`, `bar-widget` and `panel` entrypoints under
+`srdiogo.minifuse`. The service entry owns one `Quickshell.Io.Process`; the bar
+and panel look up only that plugin's service through the host-scoped facade.
+Multiple bar surfaces never create additional device subscriptions. A replacement
+bar that withholds the service facade displays an unavailable indicator.
 
-## Proposed layout
+## Connection ownership
 
-```text
-manifest.json             added only with working, validated entrypoints
-BarWidget.qml             bar indicator and click/keyboard interaction
-Panel.qml                 explicit host-summoned compact panel
-components/               controls/rendering without hardware semantics
-client/                   bounded socket adapter and view model
-tests/                    contract fixtures, QML and host scenarios
-docs/
-```
+`client/bridge.py` is an isolated standard-library Python client. Its process
+uses the canonical newline-delimited JSON API directly; it does not run or parse
+`mf-cli`. A helper rather than a raw QML `SplitParser` on the service socket
+allows byte-level UTF-8/duplicate-key validation, partial-frame deadlines,
+peer-UID checks and durable operation references without blocking the shared
+shell event loop. This is a transport/presentation adapter, not another device
+service. All hardware semantics, USB access, rollback and verification stay in
+mf-service/mf-core.
 
-The planned manifest declares `bar-widget` and `panel` kinds, with matching
-`entryPoints.barWidget` and `entryPoints.panel`. Avoid loading multiple socket
-clients merely because both entrypoints exist: share a plugin-owned connection
-where supported by the host, or use bounded independent clients with one
-clearly owned lifecycle. No private first-party service access is assumed.
+One connection negotiates API 1 and the required plans, subscriptions, durable
+operations and continuous-control features. Its atomic subscription baseline
+contains inventory, capabilities, confirmed states and sequence. No delta applies
+before that baseline. Inventory changes, sequence gaps, epoch changes, invalid
+frames and service loss close the connection and clear writable state. Reconnect
+obtains a fresh baseline and queries retained operation identities. It does not
+replay a gesture, route change, mute or preset.
 
-Installed files belong under `~/.config/omarchy/plugins/srdiogo.minifuse/`.
-Do not patch packaged `/usr/share/omarchy` files, replace the built-in bar or
-edit the existing audio plugin to add device-specific control logic.
+Limits are 256 KiB per service frame including LF, a two-second partial-frame
+deadline, eight outstanding requests, 16 inventory/mix entries, 32 sources per
+mix, 4 KiB panel commands and 32 KiB projected view frames. The asyncio reader
+has bounded flow-control buffering. A single output worker plus a one-slot,
+replaceable view queue bounds retained presentation data when the shell is slow.
+Readback and theme changes never create mutations. Reconnect backs off two seconds.
 
-## Data/control flow
+The helper is launched as a fixed argument vector with Python isolated mode and
+a path resolved inside this plugin. Panel commands have a closed action set.
+The only application launch is the fixed `minifuse-control` executable, detached
+from the helper lifetime so plugin unload cannot terminate the GUI. There is
+no shell command interpolation, root request, module loading or raw USB path.
 
-Connect with Quickshell's local socket facilities to the service, negotiate
-API/capabilities and fetch a baseline before enabling controls. Receive bounded
-state events and reconnect after service restart/gaps. Never synchronously
-launch `mf-cli` for every slider movement or parse human-readable terminal text.
+## Operations and recovery
 
-Use domain plans/apply and operation identity from the canonical service
-contract, including the negotiated `live_controls` feature. Read state on
-connection and follow subscriptions; manual refresh belongs in diagnostics. The
-master slider renders locally, sends coalesced intermediate samples and
-preserves its final value on release. Use one in-flight sample plus one latest
-desired value, with the service retaining per-sample evidence.
-Show verified state only after settlement; a timeout requires outcome query,
-not a new write. The shell event loop never performs blocking hardware work.
+The confirmed state supplies device/generation/revision tokens and the advertised
+mix/route/source inventory. The client never derives identity from USB addresses
+or UI positions. Source mute and route actions use domain plan/apply. Plan expiry
+or conflict is visible; a failed plan is not rebuilt and applied automatically.
 
-Omarchy plugins run in the shared shell process. Keep the adapter small, bound
-all frame/subscriber memory and handle malformed/incompatible server data.
-Plugin unload/hot reload closes its own subscriptions and never cancels or
-replays a transaction already admitted by the service.
+Master gestures use `begin_control` and contiguous `update_control` sequences.
+There is at most one unsettled sample and one replaceable desired value. Samples
+are separated by at least 80 ms; release remains a final sample. Acknowledgement
+is admission, not verification. Own confirmed-state events preserve the preview;
+unassociated revision changes stop the old gesture. An interrupted control
+retains confirmed changes without replaying the final pointer position.
 
-## Panel contents
+A private client token and locally generated idempotency key are saved and
+fsynced before admission. Terminal records are archived before the pending
+reference is cleared. A rejected later sample cannot discard an already-admitted
+gesture's identity. Unknown/indeterminate outcomes keep controls disabled. Only
+a fresh, inspectable baseline and an explicit user acknowledgement permit
+archiving such an outcome without retrying it. A still-pending operation cannot
+be acknowledged. Service evidence is retained independently.
 
-- Device/connection state and a concise unavailable/error explanation.
-- Selected mix and its confirmed route; make bypassed-master behavior clear.
-- Master configured level with numeric value, continuous adjustment feedback and
-  supported mute affordances. Do not invent a hardware master-mute selector;
-  any UI mute must use an explicitly designed core operation/capability.
-- Preset inspection/restore planning with an explicit apply step, or opening
-  the full application when the compact panel cannot show a sufficient preview.
-- Open Full Application as a deliberate action, with missing-app feedback.
+Client state and the exclusive helper lock live under
+`$XDG_STATE_HOME/omarchy-minifuse` (standard home fallback), with 0700 directories
+and 0600 files. The archive is bounded to 256 records; a full or unwritable store
+blocks new admissions. Disable the plugin before archiving resolved records.
+Unloading/hot reload closes the connection and preserves the pending reference.
 
-Show switch indicators only when reliable readback is advertised. Keep host
-PipeWire volume, configured mix levels and measured signal meters distinct.
-Apply the host's theme, scaling and accessibility conventions without changing
-device state on theme updates or component construction.
+## Presentation and activation
 
-## Activation and desktop agent
+The panel follows `qs.Commons.Color` and `Style` plus `qs.Ui` controls from the
+pinned host, including text, spacing and focus states. The normal status slot
+has fixed height so confirmations do not move controls. The panel uses a native Wayland overlay layer with zero exclusive zone. It opens
+on the invoking bar screen (or focused monitor for direct summons), respects
+bar position and available screen size, and scrolls on short screens. It never
+enters the tiling layout. A focus grab starts after the surface maps; outside
+clicks, Escape and Close dismiss it. Its summon target also works without a
+visible bar widget.
+Escape, Close and normal window dismissal return ownership to the host.
 
-Bar clicks and keyboard actions can open the panel directly. For the physical
-button, the desktop agent chooses the configured target and invokes the
-plugin's explicit summon entrypoint. Keep the plugin ID stable across releases.
-The plugin does not independently respond to `control_panel_requested` by
-opening another window or launching the application.
+Mix masters are configured levels, not meters. A destination on a different
+route bypasses that custom master, so its slider is unavailable. The compact
+panel delegates preset comparison/restore and detailed meters to the full app.
+Reliable input switch readback is displayed without a panel write path.
 
-If the plugin is disabled/not installed, the agent reports the missing target
-according to user preference. Installing the plugin is not sufficient to
-observe a button while the service/agent are stopped. Agent and service startup
-remain explicit optional session configuration.
+The plugin never independently reacts to `control_panel_requested`. The separate
+desktop agent may invoke `omarchy-shell shell summon srdiogo.minifuse '{}'` when
+physical-button support becomes validated. Opening/reconnecting the plugin is
+never treated as a button event. Service and optional agent startup remain
+separate user decisions.
 
-## References
+## References and compatibility
 
-- [Omarchy shell/plugin contract](https://github.com/basecamp/omarchy/blob/quattro/shell/README.md)
-- [Quickshell overview](https://quickshell.org/about/)
-- [Quickshell local socket](https://quickshell.org/docs/v0.3.1/types/Quickshell.Io/Socket/)
+- [Pinned Omarchy shell contract](https://github.com/omacom/omarchy/blob/c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell/README.md)
+- [Quickshell 0.3.1 process API](https://quickshell.org/docs/v0.3.1/types/Quickshell.Io/Process/)
+- [Canonical service protocol](https://github.com/srdiogo/mf-service/blob/main/docs/IPC.md)
+- [Canonical continuous-control guarantees](https://github.com/srdiogo/mf-service/blob/main/docs/LIVE_CONTROLS.md)
 
-These sources informed the design; dependency versions are not pinned by a URL
-to a moving documentation branch. Record a tested host release/commit in the
-first implementation's compatibility table.
-
-## Service contract baseline
-
-`contract.lock.json` pins the implemented service revision and canonical fixture
-SHA-256, including continuous-control admission/intermediate/final results. This
-is an implementation prerequisite; it does not advertise a functioning plugin
-or claim a tested host compatibility range.
+`host.lock.json` records the tested package/runtime and checksummed source
+archive. The selected public source matches the installed host's registry,
+scoped shell facade, UI controls, style and shell loader. `contract.lock.json`
+pins the producer revision and SHA-256 of the canonical fixtures. These pins
+are acceptance references, not a claim that all future versions are compatible.
