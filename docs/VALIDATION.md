@@ -12,7 +12,8 @@ models, external state interruption and sequence-gap invalidation.
 Recovery checks cover uncertain apply acknowledgement, query without replay,
 explicit unknown-outcome acknowledgement, refusal to acknowledge pending work,
 retention of an admitted gesture after a later rejected sample, identity-store
-failure before admission, exclusive ownership and private archival files.
+failure before admission, exclusive ownership and private archival files. Launcher checks cover fixed
+arguments, missing-app feedback and survival independently of the client lifetime.
 
 `tools/check_project.py` validates manifest paths, fixture SHA-256 and bridge
 help. QML lint suppresses host metadata categories for QObject-backed dynamic

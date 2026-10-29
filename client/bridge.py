@@ -842,6 +842,7 @@ class Application:
         self.can_acknowledge = False
         self.output = asyncio.Queue(maxsize=1)
         self.launches = set()
+        self.applications = set()
 
     def mix(self):
         if not self.state:
@@ -917,18 +918,28 @@ class Application:
         self.publish()
 
     async def open_app(self):
+        # A detached application must outlive helper unload. Asyncio subprocess
+        # transports can terminate children when their owning loop is closed.
+        self.applications = {
+            process for process in self.applications if process.poll() is None
+        }
+        if len(self.applications) >= 4:
+            self.message = "Application launch is already in progress"
+            self.publish()
+            return
         try:
-            process = await asyncio.create_subprocess_exec(
-                "minifuse-control",
+            process = subprocess.Popen(
+                ["minifuse-control"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
             try:
-                code = await asyncio.wait_for(asyncio.shield(process.wait()), 0.25)
+                code = await asyncio.to_thread(process.wait, timeout=0.25)
                 if code:
                     raise OSError("MiniFuse Control could not start")
-            except asyncio.TimeoutError:
+            except subprocess.TimeoutExpired:
+                self.applications.add(process)
                 return
         except OSError:
             self.message = "Install MiniFuse Control and make minifuse-control available in the session PATH"

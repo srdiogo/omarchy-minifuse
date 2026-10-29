@@ -7,8 +7,9 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("bridge", ROOT / "client/bridge.py")
@@ -434,6 +435,27 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.method_requests("begin_control"))
         self.assertFalse(self.method_requests("update_control"))
         self.assertIn("State store unavailable", self.app.message)
+
+    async def test_application_launch_is_detached_from_client_lifetime(self):
+        await self.ready()
+        process = Mock()
+        process.poll.return_value = None
+        process.wait.side_effect = subprocess.TimeoutExpired("minifuse-control", 0.25)
+        with patch.object(bridge.subprocess, "Popen", return_value=process) as launch:
+            await self.app.open_app()
+        self.assertEqual(launch.call_args.args, (["minifuse-control"],))
+        self.assertTrue(launch.call_args.kwargs["start_new_session"])
+        self.assertIn(process, self.app.applications)
+        self.running.cancel()
+        await asyncio.gather(self.running, return_exceptions=True)
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+
+    async def test_missing_application_reports_installation_feedback(self):
+        await self.ready()
+        with patch.object(bridge.subprocess, "Popen", side_effect=FileNotFoundError):
+            await self.app.open_app()
+        self.assertIn("Install MiniFuse Control", self.app.message)
 
     async def test_partial_frame_deadline(self):
         await self.ready()

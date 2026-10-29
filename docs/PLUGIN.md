@@ -34,7 +34,8 @@ Readback and theme changes never create mutations. Reconnect backs off two secon
 
 The helper is launched as a fixed argument vector with Python isolated mode and
 a path resolved inside this plugin. Panel commands have a closed action set.
-The only application launch is the fixed `minifuse-control` executable. There is
+The only application launch is the fixed `minifuse-control` executable, detached
+from the helper lifetime so plugin unload cannot terminate the GUI. There is
 no shell command interpolation, root request, module loading or raw USB path.
 
 ## Operations and recovery

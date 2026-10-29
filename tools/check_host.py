@@ -67,6 +67,7 @@ import "Plugin/components" as Components
 ShellRoot {
     id: root
     property int dispatches: 0
+    property int attempts: 0
     property var model: VIEW
     QtObject {
         id: backend
@@ -103,9 +104,16 @@ ShellRoot {
         panel.focusInitial()
     }
     Timer {
-        interval: 500
+        interval: 100
+        repeat: true
         running: true
         onTriggered: {
+            if (realEntry.model.status !== "Service unavailable") {
+                root.attempts += 1
+                if (root.attempts >= 50) throw new Error("Helper startup deadline expired")
+                return
+            }
+            stop()
             if (!panel.selected || !widget.backend) throw new Error("Entrypoint integration failed")
             if (realEntry.model.connected || realEntry.model.status !== "Service unavailable") throw new Error("Real service entrypoint lifecycle failed")
             const initial = root.dispatches

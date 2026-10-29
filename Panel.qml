@@ -61,10 +61,13 @@ Item {
                     left: root.position === "left"
                     right: root.position !== "left"
                 }
+                // The runtime PanelWindow factory omits margin metadata.
+                // qmllint disable unqualified
                 margins.top: window.gap + (root.position === "top" ? root.barSize : 0)
                 margins.bottom: window.gap + (root.position === "bottom" ? root.barSize : 0)
                 margins.left: window.gap + (root.position === "left" ? root.barSize : 0)
                 margins.right: window.gap + (root.position === "right" ? root.barSize : 0)
+                // qmllint enable unqualified
                 function focusInitial() { quick.focusInitial() }
                 HyprlandFocusGrab {
                     id: focusGrab
