@@ -158,6 +158,17 @@ ShellRoot {
                 root.phase = 2
                 return
             }
+            if (root.phase === 2) {
+                root.model = Object.assign({}, root.model, {connected: false, can_write: false, mixes: [], inputs: {}, meters: null, busy: false})
+                root.phase = 3
+                return
+            }
+            if (root.phase === 3) {
+                if (panel.selected || panel.layoutSnapshot().sourceCount !== 0) throw new Error("Disconnected mixer retained source views")
+                root.model = root.originalModel
+                root.phase = 4
+                return
+            }
             stop()
             const after = panel.layoutSnapshot()
             if (root.dispatches !== 0) throw new Error("Construction/theme/readback/focus dispatched a command")

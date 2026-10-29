@@ -177,13 +177,14 @@ Rectangle {
                 restoreMode: Binding.RestoreNone
             }
             Row {
+                id: meterBank
                 anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: Style.space(8); bottomMargin: Style.space(8) }
                 spacing: Style.space(2)
                 Repeater {
                     model: root.master ? 2 : 1
                     Components.SignalMeter {
                         required property int index
-                        height: parent.height
+                        height: meterBank.height
                         level: root.meterLevels[index] === undefined ? null : root.meterLevels[index]
                         available: root.metersAvailable
                     }

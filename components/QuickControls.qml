@@ -74,15 +74,15 @@ Rectangle {
                 model: root.model.mixes.length
                 Ui.Button {
                     required property int index
-                    readonly property var mix: root.model.mixes[index]
-                    text: root.mixLabel(mix.mix)
-                    selected: root.model.selected === mix.mix
+                    readonly property var mix: root.model.mixes[index] || null
+                    text: mix ? root.mixLabel(mix.mix) : ""
+                    selected: !!mix && root.model.selected === mix.mix
                     bordered: true
                     focusable: true
                     Layout.fillWidth: true
                     horizontalPadding: Style.spacing.sm
-                    enabled: !root.model.busy
-                    onClicked: root.send({action: "select_mix", value: mix.mix})
+                    enabled: !!mix && !root.model.busy
+                    onClicked: if (mix) root.send({action: "select_mix", value: mix.mix})
                 }
             }
         }
@@ -137,7 +137,10 @@ Rectangle {
                         model: root.selected ? root.selected.channels.length : 0
                         Components.ChannelStrip {
                             required property int index
-                            width: Math.max(Style.space(100), (sourceViewport.availableWidth - strips.spacing * (root.selected.channels.length - 1)) / root.selected.channels.length)
+                            width: {
+                                const count = Math.max(1, root.selected ? root.selected.channels.length : 0)
+                                return Math.max(Style.space(100), (sourceViewport.availableWidth - strips.spacing * (count - 1)) / count)
+                            }
                             channel: root.selected ? root.selected.channels[index] : null
                             source: channel ? channel.source : ""
                             title: root.sourceLabel(source)
