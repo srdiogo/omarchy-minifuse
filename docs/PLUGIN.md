@@ -69,8 +69,8 @@ Unloading/hot reload closes the connection and preserves the pending reference.
 
 The panel follows `qs.Commons.Color` and `Style` plus `qs.Ui` controls from the
 pinned host, including text, spacing and focus states. The normal status slot
-has fixed height so confirmations do not move controls. The panel is a managed
-floating window; its summon target works even without a visible bar widget.
+has fixed height so confirmations do not move controls. The panel uses equal minimum/maximum size hints so Hyprland treats it as a
+compact floating window; its summon target works even without a visible bar widget.
 Escape, Close and normal window dismissal return ownership to the host.
 
 Mix masters are configured levels, not meters. A destination on a different

@@ -25,7 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
-      - run: pacman -Syu --noconfirm git python quickshell qt6-declarative curl
+      - name: Install the tested runtime from an Arch repository snapshot
+        run: |
+          printf 'Server = https://archive.archlinux.org/repos/2026/09/13/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm git python quickshell qt6-declarative curl inotify-tools ttf-dejavu
       - uses: actions/checkout@v4
       - name: Fetch the pinned host reference
         run: |
@@ -44,5 +47,10 @@ jobs:
           QT_QUICK_BACKEND: software
         run: |
           quickshell --version
+          python - <<'PY'
+          import subprocess
+          packages=subprocess.check_output(['pacman','-Q','quickshell','qt6-base','qt6-declarative'],text=True)
+          assert 'quickshell 0.3.1-1' in packages and 'qt6-base 6.11.2-3' in packages and 'qt6-declarative 6.11.2-1' in packages,packages
+          PY
           python tools/check_project.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
           python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell

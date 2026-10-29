@@ -33,7 +33,10 @@ is used. A rendered panel was inspected for layout and contrast.
 The pinned Omarchy 4.0.4 source matches the installed 4.0.4-1 host's registry,
 scoped facade, shell loader, Button, Dropdown and Style files. Runtime baseline:
 Quickshell 0.3.1, Qt 6.11.2, Python 3.14.7. CI also checks the client on Python
-3.12 and 3.14 and constructs the pinned host components in Arch Linux.
+3.12 and 3.14 and constructs the pinned host components using the 2026-09-13
+Arch repository snapshot, which provides the tested Quickshell/Qt packages.
+The current rolling repository already provides newer runtimes; it is not
+substituted for this compatibility baseline.
 
 ## MiniFuse 4 smoke validation
 

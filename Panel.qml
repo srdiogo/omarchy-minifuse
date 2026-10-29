@@ -42,7 +42,8 @@ Item {
         color: Color.popups.background
         implicitWidth: Style.space(420)
         implicitHeight: content.implicitHeight + Style.spacing.huge * 2
-        minimumSize: Qt.size(Style.space(360), content.implicitHeight + Style.spacing.huge * 2)
+        minimumSize: Qt.size(implicitWidth, implicitHeight)
+        maximumSize: minimumSize
         onVisibleChanged: if (!visible && root.opened) root.dismiss()
 
         Rectangle {
