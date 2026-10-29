@@ -7,10 +7,19 @@ indicator and layer panel share one client connection to
 remains a separate project; Omarchy is optional for the platform.
 
 **Status: development preview.** The plugin provides confirmed connection and
-input indicators, mix selection, continuous master adjustment, advertised
-routes and per-source mute. The full application owns preset comparison and
-restore, detailed mixing and signal-meter views. Hardware validation is bounded
-to one MiniFuse 4. MF1/MF2 mixer layouts are not inferred.
+input indicators, mix tabs, vertical channel strips with level/pan/mute/solo,
+a separate mix master, advertised routes and live signal meters. The full
+application owns preset comparison/restore, membership editing and writable
+input switches. Hardware validation is bounded to one MiniFuse 4. MF1/MF2 mixer layouts are not inferred.
+
+The layout takes inspiration from the channel strips and monitor separation in
+[Omarchy360](https://plugins.omarchy.org/plugin.html?id=fenrirrhogar.omarchy360)
+and the [official MiniFuse 4 control center](https://downloads.arturia.net/products/minifuse-4/manual/minifuse-4_Manual_1_0_0_EN.pdf).
+It uses original QML components and the active Omarchy palette, fonts and scale.
+Sources scroll horizontally on smaller displays while the master stays visible.
+Status messages occupy a fixed footer and never move the faders.
+
+![Mixer layout with illustrative fixture data](preview.png)
 
 ## Requirements and installation
 
@@ -39,10 +48,13 @@ Click **MF** in the bar, focus it and press Enter/Space, or explicitly summon:
 omarchy-shell shell summon srdiogo.minifuse '{}'
 ```
 
-Device state is read on connection and follows service events. A master gesture
-coalesces intermediate movement and preserves the release value. A bypassed
-custom mix has its master disabled with an explanation. Source mute uses the
-advertised channel operation; no hardware master-mute selector is invented.
+Device state is read on connection and follows service events. Level and pan
+gestures coalesce intermediate movement and preserve the release value. A
+bypassed custom mix has its controls disabled with an explanation. Mute/solo
+use advertised channel operations; no hardware master-mute selector is invented.
+Each strip displays one advertised source. Stereo pair members remain separate
+channels, without an invented linked-write policy. Meters are read only while
+the panel is open and expire after 500 ms without a valid sample.
 INST/+48 V are read-only indicators here; their controls live in the full app.
 
 ## Development

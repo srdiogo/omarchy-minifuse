@@ -8,8 +8,11 @@ Implemented:
 
 - API negotiation, bounded framing, same-UID peer validation, atomic baseline,
   capability gates and contiguous subscriptions.
-- Connection indicator, mix selection, continuous master control, routes and
-  per-source mute. A bypassed master is disabled with a reason.
+- Connection indicator, mix tabs, vertical source level/pan/mute/solo strips,
+  a separate continuous mix master and advertised routes. Bypassed mixes are
+  disabled with a reason; source membership is read back rather than inferred.
+- Read-only signal meters while the panel is open, with capability/identity
+  gates and 500 ms expiry. Closing the panel unsubscribes from meter events.
 - Confirmed INST/+48 V indicators, fixed-height status feedback and host theme,
   scale and keyboard conventions.
 - Durable operation identity, intermediate/final settlement, reconnect queries,
@@ -18,8 +21,8 @@ Implemented:
 - Contract tests, real host-component construction, pinned host checks, CI and
   isolated preview tooling.
 
-The full application deliberately owns preset inspection/comparison/restore,
-detailed mixing, writable input switches and signal meters. The compact panel
+The full application owns preset inspection/comparison/restore, membership
+editing and writable input switches. The panel
 has no fabricated master-mute operation and no physical-button subscription.
 MF1/MF2 remain capability-gated; their MF4 mixer layouts are never inferred.
 

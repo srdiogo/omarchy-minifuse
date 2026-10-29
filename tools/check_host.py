@@ -18,23 +18,21 @@ def main():
         "--visible", action="store_true", help="Show the independent test window"
     )
     parser.add_argument("--capture", type=Path)
+    parser.add_argument("--width", type=int)
+    parser.add_argument(
+        "--scenario",
+        choices=["normal", "direct", "offline", "uncertain", "meters"],
+        default="normal",
+    )
     args = parser.parse_args()
     fixture = json.loads((ROOT / "tests/contract/v1.json").read_text())
     state = fixture["input_state"]["result"]
-    reduced = [
-        dict(
-            mix=m["mix"],
-            master_db=m["master_db"],
-            route=m["route"],
-            routes=next(
-                c["routes"]
-                for c in state["capabilities"]["mixes"]
-                if c["mix"] == m["mix"]
-            ),
-            channels=[dict(source=c["channel"], mute=c["mute"]) for c in m["channels"]],
-        )
-        for m in state["state"]["mixes"]
-    ]
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("bridge", ROOT / "client/bridge.py")
+    bridge = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bridge)
+    reduced, _ = bridge.state_view(state)
     view = dict(
         status="Confirmed device state",
         connected=True,
@@ -44,10 +42,34 @@ def main():
         uncertain=False,
         can_acknowledge=False,
         message="Device readback verified",
+        live_target=None,
+        meters=None,
         selected="out12",
         mixes=reduced,
         inputs=state["state"]["inputs"],
     )
+    if args.scenario == "meters":
+        view["meters"] = {
+            "sources": [-24, -35, None, None, -15, -15, -30, -30, None, None],
+            "mixes": [[-20, -20], [None, None], [None, None]],
+        }
+    elif args.scenario == "direct":
+        view["mixes"][0]["route"] = "usb12"
+    elif args.scenario == "offline":
+        view.update(
+            connected=False,
+            can_write=False,
+            mixes=[],
+            inputs={},
+            status="Service unavailable",
+        )
+    elif args.scenario == "uncertain":
+        view.update(
+            uncertain=True,
+            can_write=False,
+            can_acknowledge=True,
+            message="Outcome uncertain. Inspect current state before acknowledging; no write will be replayed.",
+        )
     with tempfile.TemporaryDirectory(prefix="minifuse-host-check-") as folder:
         folder = Path(folder)
         for name in ["Commons", "Ui", "services"]:
@@ -68,6 +90,9 @@ ShellRoot {
     id: root
     property int dispatches: 0
     property int attempts: 0
+    property int phase: 0
+    property var before: null
+    property var originalModel: null
     property var model: VIEW
     QtObject {
         id: backend
@@ -94,10 +119,10 @@ ShellRoot {
     Plugin.BarWidget { id: widget; bar: bar }
     FloatingWindow {
         visible: true
-        implicitWidth: panel.implicitWidth
+        implicitWidth: WIDTH > 0 ? WIDTH : panel.implicitWidth
         implicitHeight: panel.implicitHeight
         color: Color.popups.background
-        Components.QuickControls { id: panel; anchors.fill: parent; backend: backend }
+        Components.QuickControls { id: panel; width: parent.width; height: implicitHeight; backend: backend }
     }
     Component.onCompleted: {
         if (!registry.validateManifest(MANIFEST, "test")) throw new Error("Manifest rejected by host")
@@ -113,17 +138,32 @@ ShellRoot {
                 if (root.attempts >= 50) throw new Error("Helper startup deadline expired")
                 return
             }
+            if (root.phase === 0) {
+                if ((root.model.connected && !panel.selected) || !widget.backend) throw new Error("Entrypoint integration failed")
+                if (realEntry.model.connected) throw new Error("Real service entrypoint lifecycle failed")
+                root.before = panel.layoutSnapshot()
+                root.originalModel = root.model
+                Color.accent = "#88c0d0"
+                Color.background = "#20242c"
+                root.model = Object.assign({}, root.model, {message: "Device readback verified ".repeat(20), busy: true, meters: {sources: [-25,-30,null,null,-18,-18,null,null,null,null], mixes: [[-20,-20],[null,null],[null,null]]}})
+                panel.focusInitial()
+                root.phase = 1
+                return
+            }
+            if (root.phase === 1) {
+                const after = panel.layoutSnapshot()
+                if (root.before.footerY !== after.footerY) throw new Error("Status feedback moved the controls")
+                if (root.before.strips[0] && root.before.strips[0] !== after.strips[0]) throw new Error("Readback recreated source delegates")
+                root.model = root.originalModel
+                root.phase = 2
+                return
+            }
             stop()
-            if (!panel.selected || !widget.backend) throw new Error("Entrypoint integration failed")
-            if (realEntry.model.connected || realEntry.model.status !== "Service unavailable") throw new Error("Real service entrypoint lifecycle failed")
-            const initial = root.dispatches
-            Color.accent = "#88c0d0"
-            Color.background = "#20242c"
-            root.model = Object.assign({}, root.model, {message: "", busy: false})
-            if (root.dispatches !== initial || initial !== 0) throw new Error("Construction/theme/readback dispatched a command")
-            panel.focusInitial()
-            if (root.dispatches !== 0) throw new Error("Focus update dispatched a command")
-            console.log("HOST_CHECK_PASSED")
+            const after = panel.layoutSnapshot()
+            if (root.dispatches !== 0) throw new Error("Construction/theme/readback/focus dispatched a command")
+            if (after.masterX + 100 > panel.width || after.sourceAreaWidth <= 0) throw new Error("Master or source viewport clipped")
+            if (after.sourceContentHeight > after.masterHeight + 1) throw new Error("Source/master heights differ")
+            console.log("HOST_CHECK_PASSED", JSON.stringify({width: after.width, height: after.height, footerY: after.footerY, sources: after.sourceCount}))
             if (CAPTURE !== "") {
                 panel.grabToImage(function(result) {
                     result.saveToFile(CAPTURE)
@@ -136,6 +176,7 @@ ShellRoot {
     }
 }
 """.replace("VIEW", json.dumps(view))
+            .replace("WIDTH", str(args.width or 0))
             .replace("PLUGINS", json.dumps(str(folder / "plugins")))
             .replace("MANIFEST", (ROOT / "manifest.json").read_text())
             .replace("CAPTURE", json.dumps(capture))

@@ -274,7 +274,39 @@ def state_view(value):
                 or type(channel.get("mute")) is not bool
             ):
                 raise ValueError("Invalid source mute state")
-            reduced.append({"source": channel["channel"], "mute": channel["mute"]})
+            source = channel["channel"]
+            if source in [c["source"] for c in reduced]:
+                raise ValueError("Duplicate source state")
+            derived = channel.get("derived_level_db")
+            pan = channel.get("derived_pan")
+            if derived is not None and (
+                type(derived) not in (int, float)
+                or not math.isfinite(derived)
+                or not -128 <= derived <= 20
+            ):
+                raise ValueError("Invalid confirmed channel level")
+            if pan is not None and (
+                type(pan) not in (int, float)
+                or not math.isfinite(pan)
+                or not 0 <= pan <= 1
+            ):
+                raise ValueError("Invalid confirmed channel pan")
+            if any(
+                type(channel.get(k)) is not bool
+                for k in ("solo", "mono_included", "stereo_pair_included")
+            ):
+                raise ValueError("Invalid channel flags")
+            reduced.append(
+                {
+                    "source": source,
+                    "mute": channel["mute"],
+                    "solo": channel["solo"],
+                    "level_db": derived,
+                    "pan": pan,
+                    "included": channel["mono_included"]
+                    or channel["stereo_pair_included"],
+                }
+            )
         route = mix.get("route")
         if route not in routes:
             raise ValueError("Unknown confirmed route")
@@ -315,6 +347,7 @@ class Session:
         self.changed = asyncio.Event()
         self.record = None
         self.progress = time.monotonic()
+        self.watching_meters = False
 
     async def run(self):
         self.reader, self.writer = await asyncio.wait_for(
@@ -354,22 +387,29 @@ class Session:
             ):
                 raise ValueError("Service lacks required operation features")
             self.app.store.save(client_token=hello["client_token"])
-            await self.request("subscribe", {"events": EVENTS}, self.baseline)
+            await self.subscribe()
             self.app.connected = True
             self.app.publish()
             while not reader.done():
+                desired = self.app.visible and "signal_meters" in self.features
+                if desired != self.watching_meters:
+                    await self.subscribe()
+                if self.app.meters and time.monotonic() - self.app.meter_time > 0.5:
+                    self.app.meters = None
+                    self.app.publish()
                 if self.app.store.data.get("pending") and (
                     (not self.live and (not self.task or self.task.done()))
                     or time.monotonic() - self.progress > 10
                 ):
                     await self.query()
-                done, _ = await asyncio.wait({reader}, timeout=1)
+                done, _ = await asyncio.wait({reader}, timeout=0.1)
                 if reader in done:
                     await reader
             await reader
         finally:
             self.app.connected = False
             self.app.state = None
+            self.app.meters = None
             if self.app.store.data.get("pending"):
                 self.app.uncertain = True
             self.app.publish()
@@ -385,6 +425,11 @@ class Session:
             self.writer.close()
             with contextlib.suppress(OSError):
                 await self.writer.wait_closed()
+
+    async def subscribe(self):
+        self.watching_meters = self.app.visible and "signal_meters" in self.features
+        events = EVENTS + (["meters_updated"] if self.watching_meters else [])
+        await self.request("subscribe", {"events": events}, self.baseline)
 
     async def request(self, method, params, callback=None):
         if self.closed or not self.writer or len(self.requests) >= 8:
@@ -480,6 +525,7 @@ class Session:
         ) or any(not isinstance(s, dict) for s in states):
             raise ValueError("Invalid inventory member")
         self.sequence = value["seq"]
+        previous = self.app.state
         ready = [
             d
             for d in devices
@@ -499,6 +545,20 @@ class Session:
             )
             if candidate:
                 state_view(candidate)
+                if (
+                    self.live
+                    and previous
+                    and (
+                        candidate["generation"] != previous["generation"]
+                        or candidate["revision"] != previous["revision"]
+                    )
+                ):
+                    self.live["interrupted"] = True
+                    self.live["latest"] = None
+                    self.changed.set()
+                    self.app.message = (
+                        "Subscription state changed; the old gesture was stopped"
+                    )
                 self.app.state = candidate
         self.app.status = (
             "Confirmed device state"
@@ -506,7 +566,10 @@ class Session:
             else "Device controls unavailable"
         )
         self.app.message = (
-            ""
+            self.app.message
+            or "Inspect the current state before acknowledging the previous operation"
+            if self.app.uncertain or (self.live and self.live["interrupted"])
+            else ""
             if self.app.state
             else (
                 "No interface connected"
@@ -516,6 +579,46 @@ class Session:
         )
 
     def event(self, name, data):
+        if name == "meters_updated":
+            if not self.app.visible or not self.app.state:
+                return
+            if (data.get("device_id"), data.get("generation")) != (
+                self.app.state["device_id"],
+                self.app.state["generation"],
+            ):
+                return
+            if data.get("available") is not True:
+                self.app.meters = None
+            else:
+                sources, mixes = data.get("sources_dbfs"), data.get("mixes_dbfs")
+
+                def valid(level):
+                    return level is None or (
+                        type(level) in (int, float)
+                        and math.isfinite(level)
+                        and -200 <= level <= 12
+                    )
+
+                if (
+                    not isinstance(sources, list)
+                    or len(sources) != 10
+                    or not all(valid(v) for v in sources)
+                    or not isinstance(mixes, list)
+                    or len(mixes) != 3
+                    or any(
+                        not isinstance(pair, list)
+                        or len(pair) != 2
+                        or not all(valid(v) for v in pair)
+                        for pair in mixes
+                    )
+                ):
+                    raise ValueError("Invalid meter sample")
+                if self.app.state["capabilities"].get("signal_meters") is not True:
+                    return
+                self.app.meters = {"sources": sources, "mixes": mixes}
+                self.app.meter_time = time.monotonic()
+            self.app.publish()
+            return
         if name in ("device_added", "device_removed", "capabilities_changed"):
             raise ConnectionError("Device inventory changed; reading a fresh baseline")
         if (
@@ -564,19 +667,46 @@ class Session:
     def command(self, value):
         action = value.get("action")
         mix = self.app.mix()
-        if action == "master":
+        if action in ("master", "level", "pan"):
             level, finish = value.get("value"), value.get("finish")
-            if set(value) != {"action", "value", "finish"} or type(finish) is not bool:
-                raise ValueError("Invalid master command")
-            if level is not None and (
-                type(level) not in (int, float)
-                or not math.isfinite(level)
-                or not -64 <= level <= 0
+            fields = {"action", "value", "finish"}
+            if action != "master":
+                fields.add("source")
+            if set(value) != fields or type(finish) is not bool:
+                raise ValueError("Invalid continuous control command")
+            low, high = {"master": (-64, 0), "level": (-60, 12), "pan": (0, 1)}[action]
+            if (level is None and action == "pan") or (
+                level is not None
+                and (
+                    type(level) not in (int, float)
+                    or not math.isfinite(level)
+                    or not low <= level <= high
+                )
             ):
-                raise ValueError("Master value outside its advertised range")
+                raise ValueError("Control value outside its supported range")
             if not self.app.writable() or not mix or mix["route"] != "mix":
                 return
+            target = {
+                "kind": {
+                    "master": "master_level",
+                    "level": "channel_level",
+                    "pan": "channel_pan",
+                }[action],
+                "mix": mix["mix"],
+            }
+            if action != "master":
+                channel = next(
+                    (c for c in mix["channels"] if c["source"] == value.get("source")),
+                    None,
+                )
+                if not channel:
+                    raise ValueError("Unsupported channel control")
+                if not channel["included"]:
+                    return
+                target["source"] = channel["source"]
             if self.live:
+                if self.live["target"] != target:
+                    return
                 if not self.live["ending"] and not self.live["interrupted"]:
                     self.live["latest"] = (level, finish)
                     self.live["ending"] = finish
@@ -587,14 +717,14 @@ class Session:
             ):
                 return
             self.live = {
-                "mix": mix["mix"],
+                "target": target,
                 "latest": (level, finish),
                 "ending": finish,
                 "interrupted": False,
             }
             self.task = asyncio.create_task(self.live_control())
             self.task.add_done_callback(self.task_done)
-        elif action in ("route", "mute"):
+        elif action in ("route", "mute", "solo"):
             if (
                 not self.app.writable()
                 or not mix
@@ -616,20 +746,20 @@ class Session:
                     set(value) != {"action", "source", "value"}
                     or type(value.get("value")) is not bool
                 ):
-                    raise ValueError("Invalid source mute command")
+                    raise ValueError("Invalid source switch command")
                 channel = next(
                     (c for c in mix["channels"] if c["source"] == value.get("source")),
                     None,
                 )
                 if not channel:
                     raise ValueError("Source lacks a mute capability")
-                if channel["mute"] == value["value"]:
+                if channel[action] == value["value"]:
                     return
                 change = {
                     "kind": "channel",
                     "mix": mix["mix"],
                     "source": channel["source"],
-                    "mute": value["value"],
+                    action: value["value"],
                 }
             self.task = asyncio.create_task(self.change(change))
             self.task.add_done_callback(self.task_done)
@@ -672,7 +802,7 @@ class Session:
                 {
                     **self.identity(),
                     "expected_revision": self.app.state["revision"],
-                    "target": {"kind": "master_level", "mix": self.live["mix"]},
+                    "target": self.live["target"],
                     "idempotency_key": key,
                 },
             )
@@ -843,6 +973,9 @@ class Application:
         self.output = asyncio.Queue(maxsize=1)
         self.launches = set()
         self.applications = set()
+        self.visible = False
+        self.meters = None
+        self.meter_time = 0
 
     def mix(self):
         if not self.state:
@@ -872,6 +1005,10 @@ class Application:
             "can_write": self.writable(),
             "busy": busy,
             "live": live,
+            "live_target": self.session.live["target"] if live else None,
+            "meters": self.meters
+            if self.visible and time.monotonic() - self.meter_time <= 0.5
+            else None,
             "uncertain": self.uncertain,
             "can_acknowledge": self.can_acknowledge,
             "selected": self.selected,
@@ -886,7 +1023,15 @@ class Application:
 
     def command(self, value):
         action = value.get("action")
-        if action == "select_mix" and set(value) == {"action", "value"}:
+        if (
+            action == "watch"
+            and set(value) == {"action", "value"}
+            and type(value["value"]) is bool
+        ):
+            self.visible = value["value"]
+            if not self.visible:
+                self.meters = None
+        elif action == "select_mix" and set(value) == {"action", "value"}:
             mixes, _ = state_view(self.state) if self.state else ([], {})
             if not self.store.data.get("pending") and value["value"] in [
                 m["mix"] for m in mixes
@@ -911,7 +1056,10 @@ class Application:
                 task = asyncio.create_task(self.open_app())
                 self.launches.add(task)
                 task.add_done_callback(self.launches.discard)
-        elif action in ("master", "route", "mute") and self.session:
+        elif (
+            action in ("master", "level", "pan", "route", "mute", "solo")
+            and self.session
+        ):
             self.session.command(value)
         else:
             raise ValueError("Unsupported panel command")

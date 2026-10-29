@@ -19,6 +19,8 @@ Item {
     readonly property var backend: service || (shell ? shell.serviceFor("srdiogo.minifuse") : null)
     readonly property var targetScreen: Quickshell.screens.find(s => s.name === screenName) || Quickshell.screens[0]
 
+    onBackendChanged: if (opened && backend) backend.command({action: "watch", value: true})
+
     function open(payloadJson) {
         let payload = {}
         try { payload = JSON.parse(payloadJson || "{}") } catch (error) {}
@@ -29,10 +31,14 @@ Item {
         position = ["top", "bottom", "left", "right"].includes(requested) ? requested : "top"
         const size = payload && payload.barSize
         barSize = typeof size === "number" && size >= 16 && size <= 512 ? size : (position === "left" || position === "right" ? Style.bar.sizeVertical : Style.bar.sizeHorizontal)
+        if (backend) backend.command({action: "watch", value: true})
         opened = true
         Qt.callLater(function() { if (surface.item) surface.item.focusInitial() })
     }
-    function close() { opened = false }
+    function close() {
+        if (backend) backend.command({action: "watch", value: false})
+        opened = false
+    }
     function dismiss() {
         if (!opened) return
         if (shell) shell.hide("srdiogo.minifuse")

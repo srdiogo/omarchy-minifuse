@@ -196,7 +196,29 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                         writer, {"api": 1, "id": request["id"], "result": result}
                     )
                     await self.hold.wait()
-                    self.state["state"]["mixes"][0]["master_db"] = params["value"]
+                    target = next(
+                        r["params"]["target"]
+                        for r in reversed(self.requests)
+                        if r["method"] == "begin_control"
+                    )
+                    mix = next(
+                        m
+                        for m in self.state["state"]["mixes"]
+                        if m["mix"] == target["mix"]
+                    )
+                    if target["kind"] == "master_level":
+                        mix["master_db"] = params["value"]
+                    else:
+                        channel = next(
+                            c
+                            for c in mix["channels"]
+                            if c["channel"] == target["source"]
+                        )
+                        channel[
+                            "derived_level_db"
+                            if target["kind"] == "channel_level"
+                            else "derived_pan"
+                        ] = params["value"]
                     self.state["revision"] = "revision-" + str(params["sequence"])
                     result = copy.deepcopy(
                         FIXTURE[
@@ -282,6 +304,131 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         for _ in range(100):
             self.app.publish()
         self.assertEqual(self.app.output.qsize(), 1)
+
+    async def test_channel_level_has_fixed_target_and_preserves_release(self):
+        await until(lambda: self.app.connected)
+        self.hold.clear()
+        self.app.command(
+            {"action": "level", "source": "analog1", "value": -18, "finish": False}
+        )
+        await until(lambda: any(r["method"] == "update_control" for r in self.requests))
+        self.app.command(
+            {"action": "level", "source": "analog2", "value": 12, "finish": True}
+        )
+        for n in range(20):
+            self.app.command(
+                {
+                    "action": "level",
+                    "source": "analog1",
+                    "value": -16 + n / 2,
+                    "finish": False,
+                }
+            )
+        self.app.command(
+            {"action": "level", "source": "analog1", "value": -6, "finish": True}
+        )
+        self.hold.set()
+        await until(
+            lambda: not self.store.data.get("pending") and self.session.live is None
+        )
+        begin = next(r for r in self.requests if r["method"] == "begin_control")
+        self.assertEqual(
+            begin["params"]["target"],
+            {"kind": "channel_level", "mix": "out12", "source": "analog1"},
+        )
+        updates = [
+            r["params"] for r in self.requests if r["method"] == "update_control"
+        ]
+        self.assertEqual(len(updates), 2)
+        self.assertEqual(updates[-1]["value"], -6)
+        self.assertTrue(updates[-1]["finish"])
+        self.assertEqual(self.app.mix()["channels"][0]["level_db"], -6)
+
+    async def test_pan_range_silence_and_unadvertised_source(self):
+        await until(lambda: self.app.connected)
+        for action, source, value in [
+            ("pan", "analog1", None),
+            ("pan", "analog1", 1.1),
+            ("level", "analog1", 12.1),
+            ("level", "usb6", -6),
+        ]:
+            with self.assertRaises(ValueError):
+                self.app.command(
+                    {"action": action, "source": source, "value": value, "finish": True}
+                )
+        self.app.command(
+            {"action": "pan", "source": "analog1", "value": 0.25, "finish": True}
+        )
+        await until(lambda: self.session.task and self.session.task.done())
+        self.assertEqual(self.app.mix()["channels"][0]["pan"], 0.25)
+        self.app.command(
+            {"action": "level", "source": "analog1", "value": None, "finish": True}
+        )
+        await until(lambda: self.session.task.done())
+        self.assertIsNone(self.app.mix()["channels"][0]["level_db"])
+
+    async def test_solo_uses_typed_channel_plan(self):
+        await until(lambda: self.app.connected)
+        self.app.command({"action": "solo", "source": "analog1", "value": True})
+        await until(lambda: self.session.task and self.session.task.done())
+        plan = next(r for r in self.requests if r["method"] == "plan_changes")
+        self.assertEqual(
+            plan["params"]["changes"],
+            [{"kind": "channel", "mix": "out12", "source": "analog1", "solo": True}],
+        )
+
+    async def test_meters_are_visible_only_ephemeral_and_expire(self):
+        await until(lambda: self.app.connected)
+        self.assertNotIn("meters_updated", self.requests[1]["params"]["events"])
+        self.state["capabilities"]["signal_meters"] = True
+        self.app.command({"action": "watch", "value": True})
+        await until(
+            lambda: len([r for r in self.requests if r["method"] == "subscribe"]) == 2
+        )
+        await until(lambda: self.app.state["capabilities"]["signal_meters"])
+        initial = copy.deepcopy(self.app.state)
+        await self.event(self.peers[0], "meters_updated", FIXTURE["meters"]["data"])
+        await until(lambda: self.app.meters is not None)
+        self.assertEqual(self.app.state, initial)
+        self.assertFalse(self.store.data.get("pending"))
+        await until(lambda: self.app.meters is None)
+        self.app.command({"action": "watch", "value": False})
+        await until(
+            lambda: len([r for r in self.requests if r["method"] == "subscribe"]) == 3
+        )
+        self.assertNotIn("meters_updated", self.requests[-1]["params"]["events"])
+        self.assertTrue(
+            all(r["method"] in ("hello", "subscribe") for r in self.requests)
+        )
+
+    async def test_visibility_subscription_preserves_recovery_warning(self):
+        await until(lambda: self.app.connected)
+        self.app.uncertain = True
+        self.app.message = "Outcome uncertain; inspect before acknowledging"
+        self.app.command({"action": "watch", "value": True})
+        await until(
+            lambda: len([r for r in self.requests if r["method"] == "subscribe"]) == 2
+        )
+        await asyncio.sleep(0.05)
+        self.assertTrue(self.app.uncertain)
+        self.assertEqual(
+            self.app.message, "Outcome uncertain; inspect before acknowledging"
+        )
+        self.assertFalse(self.app.writable())
+
+    async def test_meter_identity_and_shapes_are_checked(self):
+        await until(lambda: self.app.connected)
+        self.app.visible = True
+        self.app.state["capabilities"]["signal_meters"] = True
+        data = copy.deepcopy(FIXTURE["meters"]["data"])
+        data["generation"] = "old-generation"
+        self.session.event("meters_updated", data)
+        self.assertIsNone(self.app.meters)
+        data["generation"] = self.app.state["generation"]
+        data["sources_dbfs"] = [float("nan")] * 10
+        with self.assertRaises(ValueError):
+            self.session.event("meters_updated", data)
+        self.assertIsNone(self.app.meters)
 
     async def test_coalescing_waits_for_settlement_and_preserves_release(self):
         await self.ready()
