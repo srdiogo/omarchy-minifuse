@@ -35,10 +35,12 @@ The exact host reference and service contract are recorded in
 Other host versions need acceptance testing.
 
 Install and start the compatible service with the matching administrator-managed
-MiniFuse module and session access first. See the coordinated
-[transport](https://github.com/srdiogo/mf-cli/releases/tag/preview-2026-10-29)
-and [service](https://github.com/srdiogo/mf-service/releases/tag/preview-2026-10-29)
-previews. Plugin installation has no package-install or startup hooks.
+MiniFuse module and session access first. The
+[backend workspace](https://github.com/srdiogo/mf-service) provides both
+`minifuse-driver-dkms` and `mf-service`, with the core compiled into the service.
+Follow [setup on a new machine](https://github.com/srdiogo/mf-service/blob/main/docs/INSTALL.md)
+and run `minifuse-doctor` before enabling the plugin. The CLI is not required.
+Plugin installation has no package-install or startup hooks.
 
 Review the source, then use the normal host workflow:
 
@@ -94,4 +96,4 @@ Omarchy's PipeWire audio widget remains the host volume/application mixer.
 
 New project-owned material is [MIT licensed](LICENSE). This is an independent
 community project. Platform research and upstream protocol attribution remain
-in [mf-cli](https://github.com/srdiogo/mf-cli).
+in [the backend evidence record](https://github.com/srdiogo/mf-service/blob/main/docs/mf4/evidence.md).

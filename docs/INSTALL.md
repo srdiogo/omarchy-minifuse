@@ -2,7 +2,12 @@
 
 Install the matching kernel transport/udev policy through administrator-managed
 packaging, then install and run mf-service in the owning login session. This
-plugin never installs those prerequisites. The upstream v0.2.6 module lacks
+plugin never installs those prerequisites. The
+[backend workspace](https://github.com/srdiogo/mf-service) owns both
+`minifuse-driver-dkms` and `mf-service`; the core is compiled into that one
+session process. The CLI is not required. Follow its
+[fresh-machine installation guide](https://github.com/srdiogo/mf-service/blob/main/docs/INSTALL.md)
+and run `minifuse-doctor` before adding the plugin. The upstream v0.2.6 module lacks
 the MF4 input-switch and meter extensions used by the wider platform.
 
 Python 3.12–3.14 and the host versions in `host.lock.json` are the supported
