@@ -116,8 +116,8 @@ separate user decisions.
 
 - [Pinned Omarchy shell contract](https://github.com/omacom/omarchy/blob/c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell/README.md)
 - [Quickshell 0.3.1 process API](https://quickshell.org/docs/v0.3.1/types/Quickshell.Io/Process/)
-- [Canonical service protocol](https://github.com/srdiogo/mf-service/blob/main/docs/IPC.md)
-- [Canonical continuous-control guarantees](https://github.com/srdiogo/mf-service/blob/main/docs/LIVE_CONTROLS.md)
+- [Canonical service protocol](https://github.com/srdiogo/minifuse-backend/blob/main/docs/IPC.md)
+- [Canonical continuous-control guarantees](https://github.com/srdiogo/minifuse-backend/blob/main/docs/LIVE_CONTROLS.md)
 
 `host.lock.json` records the tested package/runtime and checksummed source
 archive. The selected public source matches the installed host's registry,

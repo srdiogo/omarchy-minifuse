@@ -35,3 +35,14 @@ Report hardware results with model, kernel/module/service versions, exact scope,
 verification and restoration evidence. Never attach private client tokens,
 operation journals, USB captures, user presets or host diagnostics without
 reviewing their contents. Keep unresolved operation identities during debugging.
+
+## Community reports and distribution work
+
+Use [support guidance](SUPPORT.md) and the issue forms for bugs, installation
+help, compatibility reports and feature requests. Share exact versions and the
+scope actually tested. Preserve private hardware/user data and existing credits.
+
+Distribution packaging and coordinated previews follow the backend's
+[roadmap](https://github.com/srdiogo/minifuse-backend/blob/main/docs/DISTRIBUTION.md)
+and [release guide](https://github.com/srdiogo/minifuse-backend/blob/main/docs/RELEASING.md).
+Build success alone does not establish support for a new distribution or model.
