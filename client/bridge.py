@@ -219,6 +219,35 @@ class ApiError(Exception):
         )
 
 
+def model_profile(device):
+    """Accept only the additive, versioned presentation profile; no write grant."""
+    profile = device.get("profile", {}) if isinstance(device, dict) else {}
+    if (
+        not isinstance(profile, dict)
+        or type(profile.get("schema_version")) is not int
+        or profile["schema_version"] != 1
+    ):
+        return {}
+    if profile.get("id") not in ("mf1", "mf2", "mf2_otg", "mf4"):
+        return {}
+    if profile.get("device_mode") not in ("control", "initialization"):
+        return {}
+    if profile.get("layout") not in (
+        "mf4_mixer",
+        "inputs_and_monitoring",
+        "initialization",
+    ):
+        return {}
+    expected = (
+        "initialization"
+        if profile["device_mode"] == "initialization"
+        else "mf4_mixer"
+        if profile["id"] == "mf4"
+        else "inputs_and_monitoring"
+    )
+    return profile if profile.get("layout") == expected else {}
+
+
 def state_view(value):
     if not isinstance(value, dict) or not all(
         opaque(value.get(k)) for k in ("device_id", "generation", "revision")
@@ -324,13 +353,23 @@ def state_view(value):
             }
         )
     inputs = state.get("inputs", {}) if caps.get("switch_readback") is True else {}
-    if inputs and (
-        not isinstance(inputs, dict)
-        or any(
-            type(inputs.get(k)) is not bool for k in ("inst1", "inst2", "phantom_power")
+    if state.get("layout") == "minifuse-basic-b2-v1":
+        expected = {"inst1", "phantom_power", "direct_monitor"}
+        if state.get("model") in ("MiniFuse 2", "MiniFuse 2 OTG"):
+            expected.add("inst2")
+        elif state.get("model") != "MiniFuse 1":
+            raise ValueError("Unknown basic model")
+        if mixes or caps.get("mixer") is True:
+            raise ValueError("Basic model cannot advertise the MF4 mixer")
+    else:
+        expected = {"inst1", "inst2", "phantom_power"}
+    if not isinstance(inputs, dict) or (
+        inputs
+        and (
+            set(inputs) != expected or any(type(v) is not bool for v in inputs.values())
         )
     ):
-        raise ValueError("Invalid input indicators")
+        raise ValueError("Invalid model-specific input indicators")
     return result, inputs
 
 
@@ -534,14 +573,19 @@ class Session:
             raise ValueError("Invalid inventory member")
         self.sequence = value["seq"]
         previous = self.app.state
-        ready = [
+        candidates = [
             d
             for d in devices
-            if d.get("connection") == "ready"
-            and d.get("capabilities", {}).get("mixer") is True
+            if model_profile(d) or d.get("capabilities", {}).get("mixer") is True
         ]
+        self.app.device = candidates[0] if len(candidates) == 1 else None
+        ready = (
+            [self.app.device]
+            if self.app.device and self.app.device.get("connection") == "ready"
+            else []
+        )
         self.app.state = None
-        if len(ready) == 1:
+        if ready:
             candidate = next(
                 (
                     s
@@ -582,7 +626,12 @@ class Session:
             else (
                 "No interface connected"
                 if not devices
-                else "A supported, unambiguous MiniFuse mixer and matching module are required"
+                else (self.app.device.get("error", {}) or {}).get(
+                    "message",
+                    "One recognized MiniFuse and matching backend support are required",
+                )
+                if self.app.device
+                else "Connect one MiniFuse; no device was selected"
             )
         )
 
@@ -973,6 +1022,7 @@ class Application:
         self.session = None
         self.connected = False
         self.state = None
+        self.device = None
         self.selected = "out12"
         self.status = "Connecting to mf-service"
         self.message = ""
@@ -997,6 +1047,11 @@ class Application:
             and self.state is not None
             and not self.uncertain
             and self.state.get("capabilities", {}).get("mixer") is True
+            and (
+                not self.device
+                or "profile" not in self.device
+                or bool(model_profile(self.device))
+            )
         )
 
     def publish(self):
@@ -1006,7 +1061,30 @@ class Application:
         live = bool(self.session and self.session.live)
         task = self.session.task if self.session else None
         busy = bool(self.store.data.get("pending") or (task and not task.done()))
+        profile = model_profile(self.device)
+        controls = (
+            profile.get("input_controls", [])
+            if profile
+            else [
+                {"target": "inst1", "label": "INST 1"},
+                {"target": "inst2", "label": "INST 2"},
+                {"target": "phantom_power", "label": "+48 V"},
+            ]
+        )
+        controls = [
+            c
+            for c in controls
+            if isinstance(c, dict)
+            and c.get("target") in ("inst1", "inst2", "phantom_power", "direct_monitor")
+        ][:4]
         value = {
+            "profile": profile,
+            "model_name": (self.device or {}).get("model", "MiniFuse"),
+            "layout": profile.get(
+                "layout",
+                "unsupported" if "profile" in (self.device or {}) else "mf4_mixer",
+            ),
+            "input_controls": controls,
             "status": self.status,
             "message": self.message,
             "connected": self.connected,
@@ -1123,6 +1201,7 @@ class Application:
                     self.session.writer.close()
                 self.connected = False
                 self.state = None
+                self.device = None
                 self.status = (
                     "Refreshing signal meters" if refreshing else "Service unavailable"
                 )

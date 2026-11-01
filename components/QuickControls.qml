@@ -29,7 +29,7 @@ Rectangle {
                 strips: Array.from({length: sourceStrips.count}, (_, i) => sourceStrips.itemAt(i))}
     }
     function dismiss() { dismissRequested() }
-    function focusInitial() { tabs.itemAt(0)?.forceActiveFocus() }
+    function focusInitial() { if (tabs.count) tabs.itemAt(0)?.forceActiveFocus() }
     function send(value) { if (backend) backend.command(value) }
     function mixLabel(value) { return ({out12: "Outputs 1–2", out34: "Outputs 3–4", loopback: "Loopback"})[value] || value }
     function mixSubtitle(value) { return ({out12: "Monitor · Phones 1", out34: "Monitor · Phones 2", loopback: "Recording return"})[value] || "" }
@@ -58,8 +58,8 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Style.spacing.xs
-                Components.Label { text: "MiniFuse"; font.pixelSize: Style.font.heading; font.bold: true; Layout.fillWidth: true }
-                Components.Label { text: "HARDWARE MIXER"; color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true }
+                Components.Label { text: root.model.model_name || "MiniFuse"; font.pixelSize: Style.font.heading; font.bold: true; Layout.fillWidth: true }
+                Components.Label { text: root.model.layout && root.model.layout !== "mf4_mixer" ? "INPUTS & MONITORING" : "HARDWARE MIXER"; color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true }
             }
             Rectangle { implicitWidth: Style.space(6); implicitHeight: implicitWidth; radius: width / 2; color: root.model.connected ? Color.accent : Color.muted }
             Components.Label { text: root.model.connected ? "CONNECTED" : "OFFLINE"; font.pixelSize: Style.font.caption; color: Color.muted }
@@ -69,6 +69,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.spacing.sm
+            visible: !root.model.layout || root.model.layout === "mf4_mixer"
             Repeater {
                 id: tabs
                 model: root.model.mixes.length
@@ -89,6 +90,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.spacing.lg
+            visible: !root.model.layout || root.model.layout === "mf4_mixer"
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Style.spacing.xs
@@ -110,6 +112,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: master.implicitHeight
+            visible: !root.model.layout || root.model.layout === "mf4_mixer"
             spacing: Style.spacing.lg
             Controls.ScrollView {
                 id: sourceViewport
@@ -169,14 +172,20 @@ Rectangle {
             }
         }
         Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Style.normalBorderFor(Color.foreground, Color.accent) }
+        Components.Label {
+            visible: !!root.model.layout && root.model.layout !== "mf4_mixer"
+            Layout.fillWidth: true
+            text: root.model.layout === "initialization" ? "Initialization USB mode · audio controls unavailable" : "Experimental model support · hardware validation pending. Input indicators are read-only here; use MiniFuse Control for guided switch tests."
+            color: Color.muted
+        }
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.spacing.sm
             Repeater {
-                model: [{key: "inst1", label: "INST 1"}, {key: "inst2", label: "INST 2"}, {key: "phantom_power", label: "+48 V"}]
+                model: root.model.input_controls || [{target: "inst1", label: "INST 1"}, {target: "inst2", label: "INST 2"}, {target: "phantom_power", label: "+48 V"}]
                 Rectangle {
                     required property var modelData
-                    readonly property var switchValue: root.model.inputs ? root.model.inputs[modelData.key] : undefined
+                    readonly property var switchValue: root.model.inputs ? root.model.inputs[modelData.target] : undefined
                     implicitWidth: indicator.implicitWidth + Style.spacing.lg * 2
                     implicitHeight: Style.space(28)
                     color: switchValue === true ? Style.selectedFillFor(Color.foreground, Color.accent) : "transparent"
@@ -193,7 +202,7 @@ Rectangle {
                 }
             }
             Item { Layout.fillWidth: true }
-            Components.Label { visible: root.width > Style.space(700); text: "dB = mix gain · meters = dBFS"; font.pixelSize: Style.font.caption; color: Color.muted }
+            Components.Label { visible: (!root.model.layout || root.model.layout === "mf4_mixer") && root.width > Style.space(700); text: "dB = mix gain · meters = dBFS"; font.pixelSize: Style.font.caption; color: Color.muted }
         }
         RowLayout {
             id: footer
@@ -226,7 +235,7 @@ Rectangle {
             }
             Ui.Button {
                 objectName: "open-full-mixer"
-                text: "Open full mixer ↗"
+                text: root.model.layout && root.model.layout !== "mf4_mixer" ? "Open controls ↗" : "Open full mixer ↗"
                 bordered: true
                 focusable: true
                 onClicked: { root.send({action: "open_app"}); root.dismiss() }

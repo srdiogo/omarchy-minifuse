@@ -47,12 +47,46 @@ def main():
     parser.add_argument("--width", type=int)
     parser.add_argument(
         "--scenario",
-        choices=["normal", "direct", "offline", "uncertain", "meters"],
+        choices=[
+            "normal",
+            "direct",
+            "offline",
+            "uncertain",
+            "meters",
+            "mf1",
+            "mf2",
+            "mf2_otg",
+            "initialization",
+        ],
         default="normal",
     )
     args = parser.parse_args()
     view = fixture_view()
-    if args.scenario == "meters":
+    if args.scenario in ("mf1", "mf2", "mf2_otg", "initialization"):
+        profiles = json.loads(
+            (ROOT / "tests/contract/model-profiles-v1.json").read_text()
+        )["devices"]
+        profile = next(
+            d["profile"]
+            for d in profiles
+            if (
+                d["profile"]["device_mode"] == "initialization"
+                if args.scenario == "initialization"
+                else d["profile"]["id"] == args.scenario
+                and d["profile"]["device_mode"] == "control"
+            )
+        )
+        view.update(
+            profile=profile,
+            layout=profile["layout"],
+            model_name=profile["model"],
+            input_controls=profile["input_controls"],
+            inputs={c["target"]: False for c in profile["input_controls"]},
+            mixes=[],
+            can_write=False,
+            message="Model-specific hardware validation pending",
+        )
+    elif args.scenario == "meters":
         view["meters"] = {
             "sources": [-24, -35, None, None, -15, -15, -30, -30, None, None],
             "mixes": [[-20, -20], [None, None], [None, None]],
@@ -144,7 +178,7 @@ ShellRoot {
                 return
             }
             if (root.phase === 0) {
-                if ((root.model.connected && !panel.selected) || !widget.backend) throw new Error("Entrypoint integration failed")
+                if ((root.model.connected && (!root.model.layout || root.model.layout === "mf4_mixer") && !panel.selected) || !widget.backend) throw new Error("Entrypoint integration failed")
                 if (realEntry.model.connected) throw new Error("Real service entrypoint lifecycle failed")
                 root.before = panel.layoutSnapshot()
                 root.originalModel = root.model
@@ -177,7 +211,7 @@ ShellRoot {
             stop()
             const after = panel.layoutSnapshot()
             if (root.dispatches !== 0) throw new Error("Construction/theme/readback/focus dispatched a command")
-            if (after.masterX + 100 > panel.width || after.sourceAreaWidth <= 0) throw new Error("Master or source viewport clipped")
+            if ((!root.model.layout || root.model.layout === "mf4_mixer") && (after.masterX + 100 > panel.width || after.sourceAreaWidth <= 0)) throw new Error("Master or source viewport clipped")
             if (after.sourceContentHeight > after.masterHeight + 1) throw new Error("Source/master heights differ")
             console.log("HOST_CHECK_PASSED", JSON.stringify({width: after.width, height: after.height, footerY: after.footerY, sources: after.sourceCount}))
             if (CAPTURE !== "") {
