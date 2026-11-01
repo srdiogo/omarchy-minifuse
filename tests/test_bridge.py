@@ -126,7 +126,11 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(self.running, return_exceptions=True)
         for peer in self.peers:
             peer.close()
-            await peer.wait_closed()
+            try:
+                await peer.wait_closed()
+            except ConnectionResetError:
+                # Cancelling the simulated client can reset unread peer data.
+                pass
         self.server.close()
         await self.server.wait_closed()
         self.store.close()
@@ -521,7 +525,12 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             self.app.command({"action": "mute", "source": "usb6", "value": True})
         self.app.command({"action": "mute", "source": "usb1", "value": True})
-        await until(lambda: bool(self.method_requests("plan_changes")))
+        await until(
+            lambda: (
+                bool(self.method_requests("apply_plan"))
+                and self.store.data.get("pending") is None
+            )
+        )
         self.assertEqual(
             self.method_requests("plan_changes")[0]["params"]["changes"][0]["kind"],
             "channel",

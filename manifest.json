@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "srdiogo.minifuse",
-  "name": "MiniFuse",
+  "name": "MiniFuse for Omarchy",
   "version": "0.1.0",
   "author": "Diogo de Medeiros",
   "license": "MIT",
-  "description": "MiniFuse connection status and verified hardware mixer controls through mf-service.",
+  "description": "MiniFuse mixer controls and live meters in your Omarchy bar.",
   "kinds": ["service", "bar-widget", "panel"],
   "entryPoints": {
     "service": "Service.qml",

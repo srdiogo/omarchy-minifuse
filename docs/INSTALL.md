@@ -1,12 +1,16 @@
 # Installation, operation and removal
 
+For a new installation including the backend, start at
+[Install in the project README](../README.md#install). The sections below cover
+the panel on an existing backend and its separate update/removal lifecycle.
+
 Install the matching kernel transport/udev policy through administrator-managed
 packaging, then install and run mf-service in the owning login session. This
 plugin never installs those prerequisites. The
-[backend workspace](https://github.com/srdiogo/mf-service) owns both
+[backend workspace](https://github.com/srdiogo/minifuse-backend) owns both
 `minifuse-driver-dkms` and `mf-service`; the core is compiled into that one
 session process. The CLI is not required. Follow its
-[fresh-machine installation guide](https://github.com/srdiogo/mf-service/blob/main/docs/INSTALL.md)
+[fresh-machine installation guide](https://github.com/srdiogo/minifuse-backend/blob/main/docs/INSTALL.md)
 and run `minifuse-doctor` before adding the plugin. The upstream v0.2.6 module lacks
 the MF4 input-switch and meter extensions used by the wider platform.
 

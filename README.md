@@ -1,99 +1,108 @@
 # MiniFuse for Omarchy
 
-Quick hardware mixer controls for the Quickshell-based Omarchy shell. The bar
-indicator and layer panel share one client connection to
-[mf-service](https://github.com/srdiogo/mf-service). The standalone
+**MiniFuse mixer controls and live meters in your Omarchy bar.**
+
+[![Build and tests](https://github.com/srdiogo/omarchy-minifuse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/srdiogo/omarchy-minifuse/actions/workflows/ci.yml)
+
+Open a compact hardware mixer from the bar, adjust your mix and return to your
+work. Part of **MiniFuse for Linux**, with an optional separate
 [MiniFuse Control application](https://github.com/srdiogo/minifuse-control)
-remains a separate project; Omarchy is optional for the platform.
+for full mixer, routing, input and preset management.
 
-**Status: development preview.** The plugin provides confirmed connection and
-input indicators, mix tabs, vertical channel strips with level/pan/mute/solo,
-a separate mix master, advertised routes and live signal meters. The full
-application owns preset comparison/restore, membership editing and writable
-input switches. Hardware validation is bounded to one MiniFuse 4. MF1/MF2 mixer layouts are not inferred.
-
-The layout takes inspiration from the channel strips and monitor separation in
-[Omarchy360](https://plugins.omarchy.org/plugin.html?id=fenrirrhogar.omarchy360)
-and the [official MiniFuse 4 control center](https://downloads.arturia.net/products/minifuse-4/manual/minifuse-4_Manual_1_0_0_EN.pdf).
-It uses original QML components and the active Omarchy palette, fonts and scale.
-Sources scroll horizontally on smaller displays while the master stays visible.
-Status messages occupy a fixed footer and never move the faders. M/S indications
-follow confirmed state independently of keyboard focus. The bar icon toggles the
-panel, and clicking outside on any monitor dismisses it.
-
-![MiniFuse hardware mixer panel connected to a MiniFuse 4](preview.png)
+![MiniFuse for Omarchy connected to a MiniFuse 4, with channel strips and live signal meters](preview.png)
 
 *Installed Omarchy panel connected to a MiniFuse 4, showing confirmed controls
 and live signal meters.*
 
-## Requirements and installation
+[Install](#install) · [Compatibility](#compatibility) · [Get help](SUPPORT.md) · [Contribute](CONTRIBUTING.md)
 
-The tested host is Omarchy 4.0.4-1 with Quickshell 0.3.1 and Qt 6.11.2. Python
-3.12–3.14 runs the standard-library socket adapter; it does not require PySide6.
-The exact host reference and service contract are recorded in
-[host.lock.json](host.lock.json) and [contract.lock.json](contract.lock.json).
-Other host versions need acceptance testing.
+## A mixer within reach
 
-Install and start the compatible service with the matching administrator-managed
-MiniFuse module and session access first. The
-[backend workspace](https://github.com/srdiogo/mf-service) provides both
-`minifuse-driver-dkms` and `mf-service`, with the core compiled into the service.
-Follow [setup on a new machine](https://github.com/srdiogo/mf-service/blob/main/docs/INSTALL.md)
-and run `minifuse-doctor` before enabling the plugin. The CLI is not required.
-Plugin installation has no package-install or startup hooks.
+- Connection status and input-mode indicators in a compact panel.
+- Mix tabs, vertical faders, pan, mute/solo and a separate master.
+- Available destination routes and live source/mix meters.
+- Omarchy colors, fonts and scale, with horizontal scrolling for smaller displays.
+- Click the bar icon to toggle; click outside to dismiss.
+- Open the full application when you need presets, source membership or input switches.
 
-Review the source, then use the normal host workflow:
+The panel controls the MiniFuse hardware mixer. Omarchy's PipeWire widget
+continues to handle host and application audio. INST/+48 V are read-only
+indicators in the panel; their writable controls live in the full application.
+
+## Install
+
+### New MiniFuse setup on Omarchy
+
+Download the archive and checksum from the
+[complete installation preview](https://github.com/srdiogo/minifuse-backend/releases/tag/installer-preview-2026-10-29).
+Verify and extract it, then run as your normal graphical-session user:
+
+```sh
+sha256sum -c minifuse-linux-installer-2026-10-29.tar.gz.sha256
+tar -xzf minifuse-linux-installer-2026-10-29.tar.gz
+cd minifuse-linux-installer-2026-10-29
+./install.sh --profile full
+```
+
+The plan includes the driver, service, full application, panel and boot/login
+startup. Use `--profile omarchy` for the backend and panel without the full
+application. Existing/customized installations may need additional options;
+read the [installer guide](https://github.com/srdiogo/minifuse-backend/blob/main/distribution/INSTALLER.md).
+
+### Backend already installed
+
+Run `minifuse-doctor` in the owning session, then add the plugin through Omarchy:
 
 ```sh
 omarchy plugin add https://github.com/srdiogo/omarchy-minifuse.git
 omarchy plugin enable srdiogo.minifuse
+omarchy bar move srdiogo.minifuse --section right
 ```
 
-Click **MF** in the bar, focus it and press Enter/Space, or explicitly summon:
+The host plugin installer adds the panel only. It has no system-package,
+privilege or startup hooks. The separate complete installer prepares the
+backend. See [installation, updates and removal](docs/INSTALL.md).
 
-```sh
-omarchy-shell shell summon srdiogo.minifuse '{}'
-```
+## Compatibility
 
-Device state is read on connection and follows service events. Level and pan
-gestures coalesce intermediate movement and preserve the release value. A
-bypassed custom mix has its controls disabled with an explanation. Mute/solo
-use advertised channel operations; no hardware master-mute selector is invented.
-Each strip displays one advertised source. Stereo pair members remain separate
-channels, without an invented linked-write policy. Meter subscriptions follow panel visibility after active control work settles;
-samples expire after 500 ms without a valid sample.
-INST/+48 V are read-only indicators here; their controls live in the full app.
+| Area | Current status |
+|---|---|
+| MiniFuse 4 | Bounded hardware validation of supported panel controls and meters |
+| MiniFuse 1 / 2 | Mixer layouts unavailable |
+| Tested host | Omarchy 4.0.4-1, Quickshell 0.3.1, Qt 6.11.2 |
+| Adapter | Python 3.12–3.14; PySide6 is not required |
+| Backend | [MiniFuse Backend](https://github.com/srdiogo/minifuse-backend), installed separately or through the complete kit |
 
-## Development
+**Development preview.** Other host versions need acceptance testing. The exact
+references are in [host.lock.json](host.lock.json) and
+[contract.lock.json](contract.lock.json). Physical-logo activation, effects,
+firmware changes and device-storage writes are unavailable.
 
-```sh
-python3 tools/check_project.py
-python3 -m unittest discover -s tests -v
-python3 tools/check_host.py
-python3 tools/check_interactions.py
-python3 tools/run_preview.py
-```
+## Use
 
-The first four commands use contract fixtures and an isolated host configuration;
-they do not change device settings. The last command opens the real panel against
-the running service, separately from the user's bar, and can control hardware.
-Its operation evidence uses a separate persistent preview state directory.
+Click **MF** in the bar, or focus it and press Enter/Space. The panel reads
+device state when it connects; faders and pan apply while moving. Mute/solo
+indicators follow confirmed state independently of button focus. Meter samples
+expire when stale, and fixed status space keeps messages from moving the faders.
 
-## Documentation
+The full application is optional. **Open full mixer & presets** uses its
+installed launcher. Preset comparison/restore, membership editing and writable
+input switches belong to that application.
 
-- [Client architecture and host contract](docs/PLUGIN.md)
+## Documentation and community
+
 - [Installation, operation, recovery and removal](docs/INSTALL.md)
-- [Implementation and remaining acceptance work](docs/IMPLEMENTATION.md)
-- [Validation evidence and limits](docs/VALIDATION.md)
-- [Contribution workflow](CONTRIBUTING.md)
+- [Support and troubleshooting](SUPPORT.md)
+- [Development and tests](docs/DEVELOPMENT.md)
+- [Client architecture](docs/PLUGIN.md), [implementation](docs/IMPLEMENTATION.md) and [validation](docs/VALIDATION.md)
+- [Changelog](CHANGELOG.md) and [contributing](CONTRIBUTING.md)
+- [MiniFuse Control](https://github.com/srdiogo/minifuse-control) and [MiniFuse Backend](https://github.com/srdiogo/minifuse-backend)
 
-The plugin does not subscribe to physical activation events. A separately
-optional desktop agent owns that policy and can summon this plugin when the
-backend evidence gate is satisfied. Logo-button support remains unavailable.
-Firmware, effects, device-storage writers, direct USB and host audio routing
-changes are outside scope. This panel controls the MiniFuse hardware mixer;
-Omarchy's PipeWire audio widget remains the host volume/application mixer.
+## Credits and license
 
-New project-owned material is [MIT licensed](LICENSE). This is an independent
-community project. Platform research and upstream protocol attribution remain
-in [the backend evidence record](https://github.com/srdiogo/mf-service/blob/main/docs/mf4/evidence.md).
+This is an independent community project, not an official Arturia product.
+New project-owned material is [MIT licensed](LICENSE). The layout takes
+inspiration from [Omarchy360](https://plugins.omarchy.org/plugin.html?id=fenrirrhogar.omarchy360)
+and the [official MiniFuse 4 control center](https://downloads.arturia.net/products/minifuse-4/manual/minifuse-4_Manual_1_0_0_EN.pdf),
+using original QML components. Protocol and upstream attribution remain in
+[the backend evidence record](https://github.com/srdiogo/minifuse-backend/blob/main/docs/mf4/evidence.md).
