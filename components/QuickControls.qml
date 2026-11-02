@@ -18,6 +18,8 @@ Rectangle {
     readonly property bool mixWritable: !!selected && selected.route === "mix" && !!model.can_write
     readonly property var meters: model.meters || null
     readonly property bool metersAvailable: !!meters
+    readonly property bool nativeLoopback: model.layout === "loopback_mixer"
+    readonly property bool hasMixer: !model.layout || model.layout === "mf4_mixer" || nativeLoopback
 
     function layoutSnapshot() {
         return {width: width, height: height, contentHeight: content.implicitHeight,
@@ -26,6 +28,7 @@ Rectangle {
                 sourceAreaWidth: sourceViewport.width,
                 sourceContentWidth: strips.implicitWidth,
                 sourceContentHeight: strips.implicitHeight,
+                routeButtons: Array.from({length: nativeRoutes.count}, (_, i) => nativeRoutes.itemAt(i)),
                 strips: Array.from({length: sourceStrips.count}, (_, i) => sourceStrips.itemAt(i))}
     }
     function dismiss() { dismissRequested() }
@@ -34,9 +37,10 @@ Rectangle {
     function mixLabel(value) { return ({out12: "Outputs 1–2", out34: "Outputs 3–4", loopback: "Loopback"})[value] || value }
     function mixSubtitle(value) { return ({out12: "Monitor · Phones 1", out34: "Monitor · Phones 2", loopback: "Recording return"})[value] || "" }
     function routeLabel(value) { return ({mix: "Custom mix", usb12: "USB 1–2", usb34: "USB 3–4", usb56: "USB 5–6", out12: "Outputs 1–2", out34: "Outputs 3–4"})[value] || value }
-    function sourceLabel(value) { return value.replace(/^analog/, "Analog ").replace(/^usb/, "USB ") }
+    function sourceLabel(value) { return ({usb12: "USB 1–2", usb34: "USB 3–4", usb56: "USB 5–6"})[value] || value.replace(/^analog/, "Analog ").replace(/^usb/, "USB ") }
     function sourceMeter(source) {
         if (!meters) return []
+        if (nativeLoopback) return source.startsWith("analog") ? [meters.inputs[Number(source.slice(6)) - 1]] : []
         const names = ["analog1", "analog2", "analog3", "analog4", "usb1", "usb2", "usb3", "usb4", "usb5", "usb6"]
         const index = names.indexOf(source)
         return index >= 0 ? [meters.sources[index]] : []
@@ -59,7 +63,7 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: Style.spacing.xs
                 Components.Label { text: root.model.model_name || "MiniFuse"; font.pixelSize: Style.font.heading; font.bold: true; Layout.fillWidth: true }
-                Components.Label { text: root.model.layout && root.model.layout !== "mf4_mixer" ? "INPUTS & MONITORING" : "HARDWARE MIXER"; color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true }
+                Components.Label { text: root.nativeLoopback ? "HARDWARE LOOPBACK MIXER" : root.hasMixer ? "HARDWARE MIXER" : "INPUTS & MONITORING"; color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true }
             }
             Rectangle { implicitWidth: Style.space(6); implicitHeight: implicitWidth; radius: width / 2; color: root.model.connected ? Color.accent : Color.muted }
             Components.Label { text: root.model.connected ? "CONNECTED" : "OFFLINE"; font.pixelSize: Style.font.caption; color: Color.muted }
@@ -69,7 +73,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.spacing.sm
-            visible: !root.model.layout || root.model.layout === "mf4_mixer"
+            visible: root.hasMixer
             Repeater {
                 id: tabs
                 model: root.model.mixes.length
@@ -90,7 +94,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.spacing.lg
-            visible: !root.model.layout || root.model.layout === "mf4_mixer"
+            visible: root.hasMixer
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Style.spacing.xs
@@ -101,6 +105,7 @@ Rectangle {
                 }
             }
             Ui.Dropdown {
+                visible: !root.nativeLoopback
                 label: "Route"
                 Layout.preferredWidth: Math.min(Style.space(195), root.width * 0.4)
                 value: root.selected ? root.selected.route : ""
@@ -112,7 +117,7 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: master.implicitHeight
-            visible: !root.model.layout || root.model.layout === "mf4_mixer"
+            visible: root.hasMixer
             spacing: Style.spacing.lg
             Controls.ScrollView {
                 id: sourceViewport
@@ -151,7 +156,7 @@ Rectangle {
                             writable: root.mixWritable
                             controlState: root.model
                             meterLevels: root.sourceMeter(source)
-                            metersAvailable: !!root.meters
+                            metersAvailable: !!root.meters && (!root.nativeLoopback || source.startsWith("analog"))
                             onEdit: function(action, value, finish) { root.editSource(source, action, value, finish) }
                         }
                     }
@@ -166,16 +171,72 @@ Rectangle {
                 channel: root.selected
                 writable: root.mixWritable
                 controlState: root.model
-                meterLevels: root.meters && root.selected ? root.meters.mixes[["out12", "out34", "loopback"].indexOf(root.selected.mix)] || [] : []
+                meterLevels: root.nativeLoopback ? (root.meters ? root.meters.loopback : []) : root.meters && root.selected ? root.meters.mixes[["out12", "out34", "loopback"].indexOf(root.selected.mix)] || [] : []
                 metersAvailable: !!root.meters
                 onEdit: function(action, value, finish) { root.send({action: action, value: value, finish: finish}) }
             }
+        }
+        Flow {
+            Layout.fillWidth: true
+            visible: root.nativeLoopback
+            spacing: Style.spacing.sm
+            Repeater {
+                id: nativeRoutes
+                model: [{field: "enabled", label: "Loopback"}, {field: "usb12", label: "Also record on USB 1–2"}, {field: "monitor", label: "Monitor mix"}]
+                Components.StateButton {
+                    required property var modelData
+                    implicitWidth: contentItem.implicitWidth + Style.spacing.lg * 2
+                    text: modelData.label
+                    tooltipText: modelData.label
+                    active: !!root.model.loopback && root.model.loopback[modelData.field] === true
+                    enabled: !!root.model.can_write && !root.model.busy
+                    onClicked: root.send({action: "loopback_routing", field: modelData.field, value: !active})
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.nativeLoopback && root.model.profile && root.model.profile.id === "mf2_otg"
+            Ui.Dropdown {
+                label: "Main → OTG"
+                value: root.model.otg ? String(root.model.otg.main_to_otg) : "0"
+                options: [{value: "0", label: "OTG 3–4"}, {value: "1", label: "Output 1–2"}]
+                enabled: !!root.model.can_write && !root.model.busy
+                onChanged: function(value) { root.send({action: "otg_routing", field: "main_to_otg", value: Number(value)}) }
+            }
+            Components.StateButton {
+                implicitWidth: contentItem.implicitWidth + Style.spacing.lg * 2
+                text: "Monitor OTG"
+                tooltipText: "Use OTG playback as the monitoring source"
+                active: !!root.model.otg && root.model.otg.otg_to_monitor === true
+                enabled: !!root.model.can_write && !root.model.busy
+                onClicked: root.send({action: "otg_routing", field: "otg_to_monitor", value: !active})
+            }
+            Ui.Dropdown {
+                label: "LED meters"
+                value: root.model.otg ? String(root.model.otg.meter_source) : "0"
+                options: ["Monitor out", "OTG in", "OTG out", "Computer out"].map((label, index) => ({value: String(index), label: label}))
+                enabled: !!root.model.can_write && !root.model.busy
+                onChanged: function(value) { root.send({action: "otg_routing", field: "meter_source", value: Number(value)}) }
+            }
+            Components.Label { text: "OTG in"; color: Color.muted; font.pixelSize: Style.font.caption }
+            Repeater {
+                model: 2
+                Components.SignalMeter {
+                    required property int index
+                    Layout.preferredHeight: Style.space(28)
+                    Layout.preferredWidth: Style.space(6)
+                    available: !!root.meters
+                    level: root.meters && root.meters.otg ? root.meters.otg[index] : null
+                }
+            }
+            Item { Layout.fillWidth: true }
         }
         Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Style.normalBorderFor(Color.foreground, Color.accent) }
         Components.Label {
             visible: !!root.model.layout && root.model.layout !== "mf4_mixer"
             Layout.fillWidth: true
-            text: root.model.layout === "initialization" ? "Initialization USB mode · audio controls unavailable" : "Experimental model support · hardware validation pending. Input indicators are read-only here; use MiniFuse Control for guided switch tests."
+            text: root.nativeLoopback ? "Experimental hardware loopback · firmware " + ((root.model.firmware || {}).version || "unknown") + " · hardware acceptance pending" : root.model.layout === "initialization" ? "Initialization USB mode · audio controls unavailable" : "Experimental model support · hardware validation pending. Input indicators are read-only here; use MiniFuse Control for guided switch tests."
             color: Color.muted
         }
         RowLayout {

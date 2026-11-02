@@ -57,12 +57,52 @@ def main():
             "mf2",
             "mf2_otg",
             "initialization",
+            "mf1_loopback",
+            "mf2_loopback",
+            "mf2_otg_loopback",
         ],
         default="normal",
     )
     args = parser.parse_args()
     view = fixture_view()
-    if args.scenario in ("mf1", "mf2", "mf2_otg", "initialization"):
+    if args.scenario.endswith("_loopback"):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "bridge", ROOT / "client/bridge.py"
+        )
+        bridge = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bridge)
+        fixtures = json.loads((ROOT / "tests/contract/loopback-v1.json").read_text())[
+            "devices"
+        ]
+        native = next(
+            f
+            for f in fixtures
+            if f["device"]["profile"]["id"] == args.scenario.removesuffix("_loopback")
+        )
+        device, state, meters = (native[k] for k in ("device", "state", "meters"))
+        reduced, inputs = bridge.state_view(state)
+        view.update(
+            profile=device["profile"],
+            layout="loopback_mixer",
+            model_name=device["model"],
+            input_controls=device["profile"]["input_controls"],
+            inputs=inputs,
+            mixes=reduced,
+            firmware=device["firmware"],
+            loopback=state["state"]["loopback"],
+            otg=state["state"]["otg"],
+            can_write=True,
+            selected="loopback",
+            meters={
+                "layout": "loopback",
+                "inputs": meters["inputs_dbfs"],
+                "loopback": meters["loopback_dbfs"],
+                "otg": meters["otg_dbfs"],
+            },
+        )
+    elif args.scenario in ("mf1", "mf2", "mf2_otg", "initialization"):
         profiles = json.loads(
             (ROOT / "tests/contract/model-profiles-v1.json").read_text()
         )["devices"]
@@ -178,13 +218,13 @@ ShellRoot {
                 return
             }
             if (root.phase === 0) {
-                if ((root.model.connected && (!root.model.layout || root.model.layout === "mf4_mixer") && !panel.selected) || !widget.backend) throw new Error("Entrypoint integration failed")
+                if ((root.model.connected && panel.hasMixer && !panel.selected) || !widget.backend) throw new Error("Entrypoint integration failed")
                 if (realEntry.model.connected) throw new Error("Real service entrypoint lifecycle failed")
                 root.before = panel.layoutSnapshot()
                 root.originalModel = root.model
                 Color.accent = "#88c0d0"
                 Color.background = "#20242c"
-                root.model = Object.assign({}, root.model, {message: "Device readback verified ".repeat(20), busy: true, meters: {sources: [-25,-30,null,null,-18,-18,null,null,null,null], mixes: [[-20,-20],[null,null],[null,null]]}})
+                root.model = Object.assign({}, root.model, {message: "Device readback verified ".repeat(20), busy: true, meters: panel.nativeLoopback ? {inputs: [-25,-30], loopback: [-20,-20], otg: [-30,-30]} : {sources: [-25,-30,null,null,-18,-18,null,null,null,null], mixes: [[-20,-20],[null,null],[null,null]]}})
                 panel.focusInitial()
                 root.phase = 1
                 return
@@ -211,7 +251,8 @@ ShellRoot {
             stop()
             const after = panel.layoutSnapshot()
             if (root.dispatches !== 0) throw new Error("Construction/theme/readback/focus dispatched a command")
-            if ((!root.model.layout || root.model.layout === "mf4_mixer") && (after.masterX + 100 > panel.width || after.sourceAreaWidth <= 0)) throw new Error("Master or source viewport clipped")
+            if (panel.hasMixer && (after.masterX + 100 > panel.width || after.sourceAreaWidth <= 0)) throw new Error("Master or source viewport clipped")
+            if (panel.nativeLoopback && after.routeButtons.some(button => button.width < button.contentItem.implicitWidth || button.x + button.width > panel.width)) throw new Error("Native route button clipped")
             if (after.sourceContentHeight > after.masterHeight + 1) throw new Error("Source/master heights differ")
             console.log("HOST_CHECK_PASSED", JSON.stringify({width: after.width, height: after.height, footerY: after.footerY, sources: after.sourceCount}))
             if (CAPTURE !== "") {

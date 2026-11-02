@@ -64,3 +64,6 @@ jobs:
           python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario mf2
           python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario mf2_otg
           python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario initialization
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario mf1_loopback
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario mf2_loopback
+          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 840 --scenario mf2_otg_loopback

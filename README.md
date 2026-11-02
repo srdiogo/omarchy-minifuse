@@ -65,23 +65,26 @@ backend. See [installation, updates and removal](docs/INSTALL.md).
 
 ## Model-support testing
 
-This test revision recognizes MiniFuse 1, MiniFuse 2 and MiniFuse 2 OTG and selects
-an input/monitoring layout for each. The backend keeps these models disabled by
-default until hardware acceptance. MF1 has no INST2; initialization USB modes
-have no audio controls. MF4 keeps its existing mixer and meters. The installer
-preview linked above predates these additions.
+This test revision selects the correct input and native loopback layout for
+MiniFuse 1, MiniFuse 2 and MiniFuse 2 OTG. The backend checks the USB firmware
+descriptor, exact state and matching driver capabilities before enabling native
+loopback. Candidate families are MF1/MF2 1.5.x and OTG 1.0.x; unknown or
+unreviewed families stay unavailable. Explicit opt-in is required, and physical
+acceptance is still pending for every new model. MF4 retains its existing
+independent mixer. The installer preview linked above predates these additions.
 
 We are looking for owners of MF1, MF2 and MF2 OTG to help with LED checks,
 readbacks and minimal Windows USB captures. Follow the backend's
 [hardware acceptance guide](https://github.com/srdiogo/minifuse-backend/blob/feature/model-controls/docs/models/TESTING.md).
 Static analysis and synthetic frontend fixtures are not physical validation.
+See [model layouts and boundaries](docs/MODELS.md) for controls and limitations.
 
 ## Compatibility
 
 | Area | Current status |
 |---|---|
 | MiniFuse 4 | Bounded hardware validation of supported panel controls and meters |
-| MiniFuse 1 / 2 / 2 OTG | Model-specific read-only indicators; experimental backend validation pending |
+| MiniFuse 1 / 2 / 2 OTG | Experimental native loopback mixer/routes/meters and read-only input indicators; model/firmware gates and hardware acceptance pending |
 | Tested host | Omarchy 4.0.4-1, Quickshell 0.3.1, Qt 6.11.2 |
 | Adapter | Python 3.12–3.14; PySide6 is not required |
 | Backend | [MiniFuse Backend](https://github.com/srdiogo/minifuse-backend), installed separately or through the complete kit |

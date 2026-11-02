@@ -235,6 +235,7 @@ def model_profile(device):
     if profile.get("layout") not in (
         "mf4_mixer",
         "inputs_and_monitoring",
+        "loopback_mixer",
         "initialization",
     ):
         return {}
@@ -245,7 +246,12 @@ def model_profile(device):
         if profile["id"] == "mf4"
         else "inputs_and_monitoring"
     )
-    return profile if profile.get("layout") == expected else {}
+    valid = profile.get("layout") == expected or (
+        profile["device_mode"] == "control"
+        and profile["id"] != "mf4"
+        and profile.get("layout") == "loopback_mixer"
+    )
+    return profile if valid else {}
 
 
 def state_view(value):
@@ -336,6 +342,10 @@ def state_view(value):
                     "solo": channel["solo"],
                     "level_db": derived,
                     "pan": pan,
+                    "pan_available": channel.get("pan_available", True),
+                    "solo_available": state.get("layout") != "minifuse-basic-b2-v1",
+                    "mute_mixed": channel.get("mute_mixed", False),
+                    "level_mixed": channel.get("level_mixed", False),
                     "included": channel["mono_included"]
                     or channel["stereo_pair_included"],
                 }
@@ -360,7 +370,55 @@ def state_view(value):
         elif state.get("model") != "MiniFuse 1":
             raise ValueError("Unknown basic model")
         if mixes or caps.get("mixer") is True:
-            raise ValueError("Basic model cannot advertise the MF4 mixer")
+            expected_sources = ["analog1"]
+            if state["model"] != "MiniFuse 1":
+                expected_sources.append("analog2")
+            expected_sources += [
+                "usb12",
+                "usb56" if state["model"] == "MiniFuse 2 OTG" else "usb34",
+            ]
+            routing = state.get("loopback", {})
+            firmware = state.get("firmware")
+            if (
+                caps.get("mixer") is not True
+                or not isinstance(firmware, dict)
+                or firmware.get("loopback_compatible") is not True
+                or type(firmware.get("raw_bcd")) is not int
+                or not isinstance(firmware.get("version"), str)
+                or not firmware["version"]
+                or len(result) != 1
+                or result[0]["mix"] != "loopback"
+                or result[0]["routes"] != ["mix"]
+                or [c["source"] for c in result[0]["channels"]] != expected_sources
+                or not isinstance(routing, dict)
+                or set(routing) != {"enabled", "usb12", "monitor"}
+                or any(type(v) is not bool for v in routing.values())
+                or any(
+                    c["solo"]
+                    or not c["included"]
+                    or c["solo_available"]
+                    or type(c["pan_available"]) is not bool
+                    or c["pan_available"] != c["source"].startswith("analog")
+                    or type(c["mute_mixed"]) is not bool
+                    or type(c["level_mixed"]) is not bool
+                    for c in result[0]["channels"]
+                )
+            ):
+                raise ValueError("Invalid firmware-gated hardware loopback state")
+            otg = state.get("otg")
+            if state["model"] == "MiniFuse 2 OTG":
+                if (
+                    not isinstance(otg, dict)
+                    or set(otg) != {"main_to_otg", "otg_to_monitor", "meter_source"}
+                    or type(otg["otg_to_monitor"]) is not bool
+                    or type(otg["main_to_otg"]) is not int
+                    or otg["main_to_otg"] not in (0, 1)
+                    or type(otg["meter_source"]) is not int
+                    or otg["meter_source"] not in range(4)
+                ):
+                    raise ValueError("Invalid OTG routing state")
+            elif otg is not None:
+                raise ValueError("OTG routing belongs to the OTG model")
     else:
         expected = {"inst1", "inst2", "phantom_power"}
     if not isinstance(inputs, dict) or (
@@ -656,8 +714,36 @@ class Session:
                         and -200 <= level <= 12
                     )
 
-                if (
-                    not isinstance(sources, list)
+                basic = data.get("meter_layout") == "minifuse-basic-c2-v1"
+                if basic:
+                    profile = model_profile(self.app.device)
+                    inputs, loopback, otg = (
+                        data.get(k)
+                        for k in ("inputs_dbfs", "loopback_dbfs", "otg_dbfs")
+                    )
+
+                    def peaks(values, count):
+                        return (
+                            isinstance(values, list)
+                            and len(values) == count
+                            and all(valid(v) and (v is None or v <= 0) for v in values)
+                        )
+
+                    if (
+                        profile.get("layout") != "loopback_mixer"
+                        or not peaks(inputs, 1 if profile.get("id") == "mf1" else 2)
+                        or not peaks(loopback, 2)
+                        or (
+                            not peaks(otg, 2)
+                            if profile.get("id") == "mf2_otg"
+                            else otg is not None
+                        )
+                    ):
+                        raise ValueError("Invalid model-specific meter sample")
+                elif (
+                    model_profile(self.app.device).get("layout", "mf4_mixer")
+                    != "mf4_mixer"
+                    or not isinstance(sources, list)
                     or len(sources) != 10
                     or not all(valid(v) for v in sources)
                     or not isinstance(mixes, list)
@@ -672,7 +758,16 @@ class Session:
                     raise ValueError("Invalid meter sample")
                 if self.app.state["capabilities"].get("signal_meters") is not True:
                     return
-                self.app.meters = {"sources": sources, "mixes": mixes}
+                self.app.meters = (
+                    {
+                        "layout": "loopback",
+                        "inputs": inputs,
+                        "loopback": loopback,
+                        "otg": otg,
+                    }
+                    if basic
+                    else {"sources": sources, "mixes": mixes}
+                )
                 self.app.meter_time = time.monotonic()
             self.app.publish()
             return
@@ -758,6 +853,8 @@ class Session:
                 )
                 if not channel:
                     raise ValueError("Unsupported channel control")
+                if action == "pan" and channel.get("pan_available") is False:
+                    raise ValueError("Stereo playback pairs have no pan control")
                 if not channel["included"]:
                     return
                 target["source"] = channel["source"]
@@ -780,6 +877,42 @@ class Session:
                 "interrupted": False,
             }
             self.task = asyncio.create_task(self.live_control())
+            self.task.add_done_callback(self.task_done)
+        elif action in ("loopback_routing", "otg_routing"):
+            if (
+                not self.app.writable()
+                or not mix
+                or self.app.store.data.get("pending")
+                or (self.task and not self.task.done())
+            ):
+                return
+            state = self.app.state["state"]
+            field, selected = value.get("field"), value.get("value")
+            if (
+                set(value) != {"action", "field", "value"}
+                or state.get("layout") != "minifuse-basic-b2-v1"
+            ):
+                raise ValueError("Invalid native routing command")
+            allowed = (
+                {"enabled", "usb12", "monitor"}
+                if action == "loopback_routing"
+                else {"main_to_otg", "otg_to_monitor", "meter_source"}
+            )
+            routing = state.get("loopback" if action == "loopback_routing" else "otg")
+            if field not in allowed or not isinstance(routing, dict):
+                raise ValueError("Routing control is unavailable for this model")
+            if field in ("main_to_otg", "meter_source"):
+                if type(selected) is not int or selected not in range(
+                    2 if field == "main_to_otg" else 4
+                ):
+                    raise ValueError("Invalid OTG route")
+            elif type(selected) is not bool:
+                raise ValueError("Invalid loopback route flag")
+            if routing[field] == selected:
+                return
+            self.task = asyncio.create_task(
+                self.change({"kind": action, field: selected})
+            )
             self.task.add_done_callback(self.task_done)
         elif action in ("route", "mute", "solo"):
             if (
@@ -810,7 +943,11 @@ class Session:
                 )
                 if not channel:
                     raise ValueError("Source lacks a mute capability")
-                if channel[action] == value["value"]:
+                if action == "solo" and channel.get("solo_available") is False:
+                    raise ValueError("Hardware loopback has no solo control")
+                if channel[action] == value["value"] and not (
+                    action == "mute" and channel.get("mute_mixed")
+                ):
                     return
                 change = {
                     "kind": "channel",
@@ -1042,11 +1179,22 @@ class Application:
         return next((m for m in mixes if m["mix"] == self.selected), None)
 
     def writable(self):
+        firmware = (self.device or {}).get("firmware")
         return (
             self.connected
             and self.state is not None
             and not self.uncertain
             and self.state.get("capabilities", {}).get("mixer") is True
+            and (
+                self.state["state"].get("layout") != "minifuse-basic-b2-v1"
+                or (
+                    model_profile(self.device).get("layout") == "loopback_mixer"
+                    and isinstance(firmware, dict)
+                    and firmware.get("loopback_compatible") is True
+                    and self.state["state"].get("firmware")
+                    == self.device.get("firmware")
+                )
+            )
             and (
                 not self.device
                 or "profile" not in self.device
@@ -1085,6 +1233,9 @@ class Application:
                 "unsupported" if "profile" in (self.device or {}) else "mf4_mixer",
             ),
             "input_controls": controls,
+            "firmware": (self.device or {}).get("firmware", {}),
+            "loopback": self.state["state"].get("loopback", {}) if self.state else {},
+            "otg": self.state["state"].get("otg") if self.state else None,
             "status": self.status,
             "message": self.message,
             "connected": self.connected,
@@ -1143,7 +1294,17 @@ class Application:
                 self.launches.add(task)
                 task.add_done_callback(self.launches.discard)
         elif (
-            action in ("master", "level", "pan", "route", "mute", "solo")
+            action
+            in (
+                "master",
+                "level",
+                "pan",
+                "route",
+                "mute",
+                "solo",
+                "loopback_routing",
+                "otg_routing",
+            )
             and self.session
         ):
             self.session.command(value)

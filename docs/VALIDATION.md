@@ -105,3 +105,21 @@ The installed user service and matching DKMS transport were validated on
 subscription test rejects a second subscription on the same socket; visibility
 changes must replace idle connections, preserving active gesture settlement.
 Disconnected-view construction and destruction are covered by the host check.
+
+## Experimental native model layouts
+
+On 2026-11-01, synthetic MF1/MF2/OTG native loopback layouts passed 34 Python
+client tests and 12 isolated host construction scenarios, including three native
+layouts, plus pointer/focus interaction checks. The host reference is c668141,
+Quickshell 0.3.1 / Qt 6.11.2; QML lint passed. Native state/firmware agreement,
+model sources, typed loopback/OTG routing, stereo restrictions and distinct meter
+shapes were checked without real-device writes. OTG renders were inspected for
+routing-label and fader alignment. Fixtures are pinned in
+[model-contract.lock.json](../model-contract.lock.json).
+
+Physical acceptance, including meter channel/scale and OTG second-host routing,
+remains pending separately for all new models. This does not establish support
+for a different host runtime. An earlier Quickshell 0.3.2 / Qt 6.12.0 check found
+undefined host color roles in both the existing MF4 and new-model scenarios;
+that runtime is not claimed as accepted. See [model boundaries](MODELS.md) and
+the backend's acceptance checklist before enabling experimental hardware writes.

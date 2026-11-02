@@ -97,6 +97,7 @@ Rectangle {
                 Components.Label {
                     text: {
                         const value = pan.pressed || root.ownPan ? pan.value : root.channel ? root.channel.pan : null
+                        if (root.channel && root.channel.pan_available === false) return root.channel.level_mixed ? "STEREO · MIXED" : "STEREO"
                         return value === null ? "PAN —" : Math.abs(value - 0.5) < 0.01 ? "CENTER" : (value < 0.5 ? "L " : "R ") + Math.round(Math.abs(value - 0.5) * 200)
                     }
                     color: Color.muted
@@ -106,6 +107,7 @@ Rectangle {
                 }
                 Components.MasterFader {
                     id: pan
+                    visible: !root.channel || root.channel.pan_available !== false
                     objectName: "pan-" + root.source
                     from: 0; to: 1; stepSize: 0.01
                     Layout.fillWidth: true
@@ -132,7 +134,7 @@ Rectangle {
                 visible: !root.master
                 Components.StateButton {
                     objectName: "mute-" + root.source
-                    text: "M"
+                    text: root.channel && root.channel.mute_mixed ? "M·" : "M"
                     tooltipText: "Mute " + root.title
                     active: !!root.channel && !!root.channel.mute
                     Accessible.name: tooltipText
@@ -142,6 +144,7 @@ Rectangle {
                     onClicked: root.edit("mute", !root.channel.mute, true)
                 }
                 Components.StateButton {
+                    visible: !root.channel || root.channel.solo_available !== false
                     objectName: "solo-" + root.source
                     text: "S"
                     tooltipText: "Solo " + root.title
@@ -165,7 +168,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: Style.space(220)
             Item {
-                id: scale
+                id: levelScale
                 width: Style.space(25)
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom; topMargin: Style.space(8); bottomMargin: Style.space(8) }
                 Repeater {
@@ -176,16 +179,16 @@ Rectangle {
                         text: db > 0 ? "+" + db : db
                         color: Color.muted
                         font.pixelSize: Style.font.caption
-                        width: scale.width
+                        width: levelScale.width
                         horizontalAlignment: Text.AlignRight
-                        y: (root.maximumDb - db) / (root.maximumDb - root.minimumDb + 1) * (scale.height - Style.space(9)) - height / 2 + Style.space(4.5)
+                        y: (root.maximumDb - db) / (root.maximumDb - root.minimumDb + 1) * (levelScale.height - Style.space(9)) - height / 2 + Style.space(4.5)
                     }
                 }
             }
             Components.LevelFader {
                 id: level
                 objectName: root.master ? "master-fader" : "level-" + root.source
-                anchors { left: scale.right; top: parent.top; bottom: parent.bottom }
+                anchors { left: levelScale.right; top: parent.top; bottom: parent.bottom }
                 minimumDb: root.minimumDb
                 maximumDb: root.maximumDb
                 enabled: root.included && root.writable && root.controlAllowed(root.master ? "master_level" : "channel_level")
