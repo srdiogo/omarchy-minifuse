@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", type=Path, default=Path("/usr/share/omarchy/shell"))
+    parser.add_argument(
+        "--qmllint", type=Path, default=Path("/usr/lib/qt6/bin/qmllint")
+    )
     args = parser.parse_args()
     manifest = json.loads((ROOT / "manifest.json").read_text())
     assert manifest["schemaVersion"] == 1 and manifest["id"] == "srdiogo.minifuse"
@@ -36,7 +39,7 @@ def main():
             (Path(folder) / "qs").symlink_to(host, target_is_directory=True)
             subprocess.run(
                 [
-                    "/usr/lib/qt6/bin/qmllint",
+                    str(args.qmllint),
                     "-I",
                     folder,
                     "--missing-property",

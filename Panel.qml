@@ -4,7 +4,7 @@ import QtQuick.Controls as Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import qs.Commons
+import qs.Commons as Commons
 import "components" as Components
 
 Item {
@@ -15,7 +15,7 @@ Item {
     property bool opened: false
     property string screenName: ""
     property string position: "top"
-    property real barSize: Style.bar.sizeHorizontal
+    property real barSize: Commons.Style.bar.sizeHorizontal
     readonly property var backend: service || (shell ? shell.serviceFor("srdiogo.minifuse") : null)
     readonly property var targetScreen: Quickshell.screens.find(s => s.name === screenName) || Quickshell.screens[0]
 
@@ -30,7 +30,7 @@ Item {
         const requested = payload && payload.position ? payload.position : configured
         position = ["top", "bottom", "left", "right"].includes(requested) ? requested : "top"
         const size = payload && payload.barSize
-        barSize = typeof size === "number" && size >= 16 && size <= 512 ? size : (position === "left" || position === "right" ? Style.bar.sizeVertical : Style.bar.sizeHorizontal)
+        barSize = typeof size === "number" && size >= 16 && size <= 512 ? size : (position === "left" || position === "right" ? Commons.Style.bar.sizeVertical : Commons.Style.bar.sizeHorizontal)
         if (backend) backend.command({action: "watch", value: true})
         opened = true
         Qt.callLater(function() { if (surface.item) surface.item.focusInitial() })
@@ -53,13 +53,13 @@ Item {
                 id: window
                 screen: root.targetScreen
                 visible: true
-                color: Color.popups.background
+                color: Commons.Color.popups.background
                 exclusionMode: ExclusionMode.Ignore
                 WlrLayershell.namespace: "srdiogo.minifuse"
                 WlrLayershell.layer: WlrLayer.Overlay
                 WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
                 onBackingWindowVisibleChanged: if (backingWindowVisible) Qt.callLater(function() { window.focusInitial() })
-                readonly property real gap: Style.spacing.lg
+                readonly property real gap: Commons.Style.spacing.lg
                 implicitWidth: Math.min(quick.implicitWidth, screen ? screen.width - gap * 2 - (root.position === "left" || root.position === "right" ? root.barSize : 0) : quick.implicitWidth)
                 implicitHeight: Math.min(quick.implicitHeight, screen ? screen.height - gap * 2 - (root.position === "top" || root.position === "bottom" ? root.barSize : 0) : quick.implicitHeight)
                 anchors {
@@ -99,7 +99,7 @@ Item {
     function cardGeometry(screen) {
         if (!surface.item || !screen || !targetScreen || screen.name !== targetScreen.name)
             return Qt.rect(0, 0, 0, 0)
-        const gap = Style.spacing.lg
+        const gap = Commons.Style.spacing.lg
         const width = surface.item.width
         const height = surface.item.height
         const x = position === "left" ? gap + barSize : screen.width - gap - width - (position === "right" ? barSize : 0)

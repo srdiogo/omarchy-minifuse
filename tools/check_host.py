@@ -11,7 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def fixture_view():
+def mf4_view():
     fixture = json.loads((ROOT / "tests/contract/v1.json").read_text())
     state = fixture["input_state"]["result"]
     import importlib.util
@@ -35,6 +35,94 @@ def fixture_view():
         mixes=reduced,
         inputs=state["state"]["inputs"],
     )
+
+
+def fixture_view(scenario="normal"):
+    view = mf4_view()
+    if scenario.endswith("_loopback"):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "bridge", ROOT / "client/bridge.py"
+        )
+        bridge = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bridge)
+        fixtures = json.loads((ROOT / "tests/contract/loopback-v1.json").read_text())[
+            "devices"
+        ]
+        native = next(
+            f
+            for f in fixtures
+            if f["device"]["profile"]["id"] == scenario.removesuffix("_loopback")
+        )
+        device, state, meters = (native[k] for k in ("device", "state", "meters"))
+        reduced, inputs = bridge.state_view(state)
+        view.update(
+            profile=device["profile"],
+            layout="loopback_mixer",
+            model_name=device["model"],
+            input_controls=device["profile"]["input_controls"],
+            inputs=inputs,
+            mixes=reduced,
+            firmware=device["firmware"],
+            loopback=state["state"]["loopback"],
+            otg=state["state"]["otg"],
+            can_write=True,
+            selected="loopback",
+            meters={
+                "layout": "loopback",
+                "inputs": meters["inputs_dbfs"],
+                "loopback": meters["loopback_dbfs"],
+                "otg": meters["otg_dbfs"],
+            },
+        )
+    elif scenario in ("mf1", "mf2", "mf2_otg", "initialization"):
+        profiles = json.loads(
+            (ROOT / "tests/contract/model-profiles-v1.json").read_text()
+        )["devices"]
+        profile = next(
+            d["profile"]
+            for d in profiles
+            if (
+                d["profile"]["device_mode"] == "initialization"
+                if scenario == "initialization"
+                else d["profile"]["id"] == scenario
+                and d["profile"]["device_mode"] == "control"
+            )
+        )
+        view.update(
+            profile=profile,
+            layout=profile["layout"],
+            model_name=profile["model"],
+            input_controls=profile["input_controls"],
+            inputs={c["target"]: False for c in profile["input_controls"]},
+            mixes=[],
+            can_write=False,
+            message="Model-specific hardware validation pending",
+        )
+    elif scenario == "meters":
+        view["meters"] = {
+            "sources": [-24, -35, None, None, -15, -15, -30, -30, None, None],
+            "mixes": [[-20, -20], [None, None], [None, None]],
+        }
+    elif scenario == "direct":
+        view["mixes"][0]["route"] = "usb12"
+    elif scenario == "offline":
+        view.update(
+            connected=False,
+            can_write=False,
+            mixes=[],
+            inputs={},
+            status="Service unavailable",
+        )
+    elif scenario == "uncertain":
+        view.update(
+            uncertain=True,
+            can_write=False,
+            can_acknowledge=True,
+            message="Outcome uncertain. Inspect current state before acknowledging; no write will be replayed.",
+        )
+    return view
 
 
 def main():
@@ -64,90 +152,7 @@ def main():
         default="normal",
     )
     args = parser.parse_args()
-    view = fixture_view()
-    if args.scenario.endswith("_loopback"):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "bridge", ROOT / "client/bridge.py"
-        )
-        bridge = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(bridge)
-        fixtures = json.loads((ROOT / "tests/contract/loopback-v1.json").read_text())[
-            "devices"
-        ]
-        native = next(
-            f
-            for f in fixtures
-            if f["device"]["profile"]["id"] == args.scenario.removesuffix("_loopback")
-        )
-        device, state, meters = (native[k] for k in ("device", "state", "meters"))
-        reduced, inputs = bridge.state_view(state)
-        view.update(
-            profile=device["profile"],
-            layout="loopback_mixer",
-            model_name=device["model"],
-            input_controls=device["profile"]["input_controls"],
-            inputs=inputs,
-            mixes=reduced,
-            firmware=device["firmware"],
-            loopback=state["state"]["loopback"],
-            otg=state["state"]["otg"],
-            can_write=True,
-            selected="loopback",
-            meters={
-                "layout": "loopback",
-                "inputs": meters["inputs_dbfs"],
-                "loopback": meters["loopback_dbfs"],
-                "otg": meters["otg_dbfs"],
-            },
-        )
-    elif args.scenario in ("mf1", "mf2", "mf2_otg", "initialization"):
-        profiles = json.loads(
-            (ROOT / "tests/contract/model-profiles-v1.json").read_text()
-        )["devices"]
-        profile = next(
-            d["profile"]
-            for d in profiles
-            if (
-                d["profile"]["device_mode"] == "initialization"
-                if args.scenario == "initialization"
-                else d["profile"]["id"] == args.scenario
-                and d["profile"]["device_mode"] == "control"
-            )
-        )
-        view.update(
-            profile=profile,
-            layout=profile["layout"],
-            model_name=profile["model"],
-            input_controls=profile["input_controls"],
-            inputs={c["target"]: False for c in profile["input_controls"]},
-            mixes=[],
-            can_write=False,
-            message="Model-specific hardware validation pending",
-        )
-    elif args.scenario == "meters":
-        view["meters"] = {
-            "sources": [-24, -35, None, None, -15, -15, -30, -30, None, None],
-            "mixes": [[-20, -20], [None, None], [None, None]],
-        }
-    elif args.scenario == "direct":
-        view["mixes"][0]["route"] = "usb12"
-    elif args.scenario == "offline":
-        view.update(
-            connected=False,
-            can_write=False,
-            mixes=[],
-            inputs={},
-            status="Service unavailable",
-        )
-    elif args.scenario == "uncertain":
-        view.update(
-            uncertain=True,
-            can_write=False,
-            can_acknowledge=True,
-            message="Outcome uncertain. Inspect current state before acknowledging; no write will be replayed.",
-        )
+    view = fixture_view(args.scenario)
     with tempfile.TemporaryDirectory(prefix="minifuse-host-check-") as folder:
         folder = Path(folder)
         for name in ["Commons", "Ui", "services"]:
@@ -160,7 +165,7 @@ def main():
             """
 import QtQuick
 import Quickshell
-import qs.Commons
+import qs.Commons as Commons
 import "services" as Services
 import "Plugin" as Plugin
 import "Plugin/components" as Components
@@ -200,7 +205,7 @@ ShellRoot {
         visible: true
         implicitWidth: WIDTH > 0 ? WIDTH : panel.implicitWidth
         implicitHeight: panel.implicitHeight
-        color: Color.popups.background
+        color: Commons.Color.popups.background
         Components.QuickControls { id: panel; width: parent.width; height: implicitHeight; backend: backend }
     }
     Component.onCompleted: {
@@ -222,8 +227,9 @@ ShellRoot {
                 if (realEntry.model.connected) throw new Error("Real service entrypoint lifecycle failed")
                 root.before = panel.layoutSnapshot()
                 root.originalModel = root.model
-                Color.accent = "#88c0d0"
-                Color.background = "#20242c"
+                Commons.Color.accent = "#88c0d0"
+                Commons.Color.background = "#20242c"
+                Commons.Color.shellValues = Object.assign({}, Commons.Color.shellValues, {"popups.background": "#243042", "popups.background-alpha": "1", "popups.text": "#f0e3d1"})
                 root.model = Object.assign({}, root.model, {message: "Device readback verified ".repeat(20), busy: true, meters: panel.nativeLoopback ? {inputs: [-25,-30], loopback: [-20,-20], otg: [-30,-30]} : {sources: [-25,-30,null,null,-18,-18,null,null,null,null], mixes: [[-20,-20],[null,null],[null,null]]}})
                 panel.focusInitial()
                 root.phase = 1
@@ -231,6 +237,7 @@ ShellRoot {
             }
             if (root.phase === 1) {
                 const after = panel.layoutSnapshot()
+                if (!Qt.colorEqual(panel.color, "#243042")) throw new Error("Host theme update did not reach the panel")
                 if (root.before.footerY !== after.footerY) throw new Error("Status feedback moved the controls")
                 if (root.before.strips[0] && root.before.strips[0] !== after.strips[0]) throw new Error("Readback recreated source delegates")
                 root.model = root.originalModel

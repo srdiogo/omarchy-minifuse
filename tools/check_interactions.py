@@ -14,6 +14,11 @@ from check_host import ROOT, fixture_view
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", type=Path, default=Path("/usr/share/omarchy/shell"))
+    parser.add_argument(
+        "--scenario",
+        choices=["normal", "mf1_loopback", "mf2_loopback", "mf2_otg_loopback"],
+        default="normal",
+    )
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="minifuse-interaction-check-") as name:
         folder = Path(name)
@@ -24,7 +29,7 @@ def main():
         source = (
             (ROOT / "tests/qml/InteractionHarness.qml")
             .read_text()
-            .replace("VIEW", json.dumps(fixture_view()))
+            .replace("VIEW", json.dumps(fixture_view(args.scenario)))
         )
         (folder / "shell.qml").write_text(source)
         env = {

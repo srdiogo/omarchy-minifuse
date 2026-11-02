@@ -85,11 +85,13 @@ See [model layouts and boundaries](docs/MODELS.md) for controls and limitations.
 |---|---|
 | MiniFuse 4 | Bounded hardware validation of supported panel controls and meters |
 | MiniFuse 1 / 2 / 2 OTG | Experimental native loopback mixer/routes/meters and read-only input indicators; model/firmware gates and hardware acceptance pending |
-| Tested host | Omarchy 4.0.4-1, Quickshell 0.3.1, Qt 6.11.2 |
+| Tested hosts | Omarchy 4.0.4 / Quickshell 0.3.1 / Qt 6.11.2; Omarchy 4.0.6 / Quickshell 0.3.2 / Qt 6.12.0 |
 | Adapter | Python 3.12–3.14; PySide6 is not required |
 | Backend | [MiniFuse Backend](https://github.com/srdiogo/minifuse-backend), installed separately or through the complete kit |
 
-**Development preview.** Other host versions need acceptance testing. The exact
+**Development preview.** This revision fixes theme resolution on Qt 6.12; the
+released installation preview predates that fix. Other host versions need
+acceptance testing. The exact
 references are in [host.lock.json](host.lock.json) and
 [contract.lock.json](contract.lock.json). Physical-logo activation, effects,
 firmware changes and device-storage writes are unavailable.

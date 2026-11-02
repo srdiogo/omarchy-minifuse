@@ -36,8 +36,8 @@ an uncertain operation. Constructing, focusing, refreshing or recoloring the
 panel sends no mutations. Initialization mode has no audio controls.
 
 `tests/contract/loopback-v1.json` is generated synthetic backend data, not a
-capture. Host checks render all three native layouts using the pinned supported
-Omarchy/Quickshell/Qt baseline. A successful software test does not establish
+capture. Host checks render all three native layouts and exercise their pointer controls
+on both pinned Omarchy/Quickshell/Qt generations, including Qt 6.12. A successful software test does not establish
 physical compatibility or support for an untested host version. Follow the
 [backend acceptance guide](https://github.com/srdiogo/minifuse-backend/blob/feature/model-controls/docs/models/TESTING.md)
 for firmware checks, read-only capture, controlled audio tests and reporting.

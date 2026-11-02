@@ -1,13 +1,13 @@
 import QtQuick
 import QtQuick.Controls as Controls
-import qs.Commons
+import qs.Commons as Commons
 
 Controls.AbstractButton {
     id: root
     property bool active: false
     property string tooltipText: ""
-    implicitWidth: Style.space(34)
-    implicitHeight: Style.space(30)
+    implicitWidth: Commons.Style.space(34)
+    implicitHeight: Commons.Style.space(30)
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     checked: active
@@ -17,24 +17,24 @@ Controls.AbstractButton {
     contentItem: Text {
         text: root.text
         textFormat: Text.PlainText
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.family: Commons.Style.font.family
+        font.pixelSize: Commons.Style.font.body
         font.bold: root.active
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        color: root.active ? Color.accent : Color.muted
+        color: root.active ? Commons.Color.accent : Commons.Color.muted
     }
     background: Rectangle {
-        radius: Style.cornerRadius
-        color: root.active ? Style.selectedFillFor(Color.foreground, Color.accent)
-             : root.down ? Style.pressedFillFor(Color.foreground, Color.accent)
-             : root.hovered ? Style.hoverFillFor(Color.foreground, Color.accent) : "transparent"
-        border.width: root.activeFocus ? Style.space(2) : 1
-        border.color: root.active ? Color.accent : root.activeFocus ? Color.foreground : Style.normalBorderFor(Color.foreground, Color.accent)
+        radius: Commons.Style.cornerRadius
+        color: root.active ? Commons.Style.selectedFillFor(Commons.Color.foreground, Commons.Color.accent)
+             : root.down ? Commons.Style.pressedFillFor(Commons.Color.foreground, Commons.Color.accent)
+             : root.hovered ? Commons.Style.hoverFillFor(Commons.Color.foreground, Commons.Color.accent) : "transparent"
+        border.width: root.activeFocus ? Commons.Style.space(2) : 1
+        border.color: root.active ? Commons.Color.accent : root.activeFocus ? Commons.Color.foreground : Commons.Style.normalBorderFor(Commons.Color.foreground, Commons.Color.accent)
         Rectangle {
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Style.space(4) }
-            height: Style.space(2)
-            color: Color.accent
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Commons.Style.space(4) }
+            height: Commons.Style.space(2)
+            color: Commons.Color.accent
             visible: root.active
         }
     }

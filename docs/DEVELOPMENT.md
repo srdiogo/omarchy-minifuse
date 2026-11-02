@@ -16,9 +16,19 @@ ruff check client tests tools --select E4,E7,E9,F
 ruff format --check client tests tools
 python3 tools/check_host.py
 python3 tools/check_interactions.py
+python3 tools/check_host_suite.py
 ```
 
-Host tools accept `--host` for an extracted reference shell. Automated checks
+The host suite runs 12 construction/theme/readback scenarios and four pointer
+scenarios (MF4, MF1, MF2 and OTG). `host.lock.json` pins both tested host/runtime
+combinations, their source hashes and Arch snapshot package versions. CI checks
+both Qt 6.11 and 6.12. The newer Qt adds its own `Color` singleton, so plugin
+code explicitly uses `Commons.Color` from `import qs.Commons as Commons`.
+See [Qt's qualified-import guidance](https://doc.qt.io/qt-6/qtqml-syntax-imports.html#importing-into-a-qualified-local-namespace).
+
+Host tools accept `--host` for an extracted reference shell. `check_project.py`
+and the suite also accept `--qmllint` for an isolated runtime's matching linter.
+Automated checks
 use isolated configurations and contract fixtures; they do not access a real
 device. Host construction, interactions, lifecycle and software meter samples
 are distinct from hardware evidence. See [validation](VALIDATION.md).

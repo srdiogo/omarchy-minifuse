@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
-import qs.Commons
+import qs.Commons as Commons
 import qs.Ui as Ui
 import "." as Components
 
@@ -10,9 +10,9 @@ Rectangle {
     id: root
     property var backend: null
     signal dismissRequested()
-    color: Color.popups.background
-    implicitWidth: Style.space(1080)
-    implicitHeight: content.implicitHeight + Style.spacing.huge * 2
+    color: Commons.Color.popups.background
+    implicitWidth: Commons.Style.space(1080)
+    implicitHeight: content.implicitHeight + Commons.Style.spacing.huge * 2
     readonly property var model: backend ? backend.model : ({status: "MiniFuse service unavailable", message: "", mixes: [], inputs: {}})
     readonly property var selected: model.mixes.find(m => m.mix === model.selected) || null
     readonly property bool mixWritable: !!selected && selected.route === "mix" && !!model.can_write
@@ -53,26 +53,26 @@ Rectangle {
 
     ColumnLayout {
         id: content
-        anchors { left: parent.left; right: parent.right; top: parent.top; margins: Style.spacing.huge }
-        spacing: Style.spacing.lg
+        anchors { left: parent.left; right: parent.right; top: parent.top; margins: Commons.Style.spacing.huge }
+        spacing: Commons.Style.spacing.lg
         Keys.onEscapePressed: root.dismiss()
 
         RowLayout {
             Layout.fillWidth: true
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Style.spacing.xs
-                Components.Label { text: root.model.model_name || "MiniFuse"; font.pixelSize: Style.font.heading; font.bold: true; Layout.fillWidth: true }
-                Components.Label { text: root.nativeLoopback ? "HARDWARE LOOPBACK MIXER" : root.hasMixer ? "HARDWARE MIXER" : "INPUTS & MONITORING"; color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true }
+                spacing: Commons.Style.spacing.xs
+                Components.Label { text: root.model.model_name || "MiniFuse"; font.pixelSize: Commons.Style.font.heading; font.bold: true; Layout.fillWidth: true }
+                Components.Label { text: root.nativeLoopback ? "HARDWARE LOOPBACK MIXER" : root.hasMixer ? "HARDWARE MIXER" : "INPUTS & MONITORING"; color: Commons.Color.muted; font.pixelSize: Commons.Style.font.caption; Layout.fillWidth: true }
             }
-            Rectangle { implicitWidth: Style.space(6); implicitHeight: implicitWidth; radius: width / 2; color: root.model.connected ? Color.accent : Color.muted }
-            Components.Label { text: root.model.connected ? "CONNECTED" : "OFFLINE"; font.pixelSize: Style.font.caption; color: Color.muted }
+            Rectangle { implicitWidth: Commons.Style.space(6); implicitHeight: implicitWidth; radius: width / 2; color: root.model.connected ? Commons.Color.accent : Commons.Color.muted }
+            Components.Label { text: root.model.connected ? "CONNECTED" : "OFFLINE"; font.pixelSize: Commons.Style.font.caption; color: Commons.Color.muted }
             Ui.Button { text: "Close"; focusable: true; onClicked: root.dismiss() }
         }
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Style.normalBorderFor(Color.foreground, Color.accent) }
+        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Commons.Style.normalBorderFor(Commons.Color.foreground, Commons.Color.accent) }
         RowLayout {
             Layout.fillWidth: true
-            spacing: Style.spacing.sm
+            spacing: Commons.Style.spacing.sm
             visible: root.hasMixer
             Repeater {
                 id: tabs
@@ -85,7 +85,7 @@ Rectangle {
                     bordered: true
                     focusable: true
                     Layout.fillWidth: true
-                    horizontalPadding: Style.spacing.sm
+                    horizontalPadding: Commons.Style.spacing.sm
                     enabled: !!mix && !root.model.busy
                     onClicked: if (mix) root.send({action: "select_mix", value: mix.mix})
                 }
@@ -93,21 +93,21 @@ Rectangle {
         }
         RowLayout {
             Layout.fillWidth: true
-            spacing: Style.spacing.lg
+            spacing: Commons.Style.spacing.lg
             visible: root.hasMixer
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Style.spacing.xs
+                spacing: Commons.Style.spacing.xs
                 Components.Label { text: root.selected ? root.mixSubtitle(root.selected.mix) : "No supported mixer connected"; font.bold: true; Layout.fillWidth: true }
                 Components.Label {
                     text: root.selected && root.selected.route !== "mix" ? "Direct route · custom mix bypassed" : "INPUTS & COMPUTER PLAYBACK"
-                    color: Color.muted; font.pixelSize: Style.font.caption; Layout.fillWidth: true
+                    color: Commons.Color.muted; font.pixelSize: Commons.Style.font.caption; Layout.fillWidth: true
                 }
             }
             Ui.Dropdown {
                 visible: !root.nativeLoopback
                 label: "Route"
-                Layout.preferredWidth: Math.min(Style.space(195), root.width * 0.4)
+                Layout.preferredWidth: Math.min(Commons.Style.space(195), root.width * 0.4)
                 value: root.selected ? root.selected.route : ""
                 options: root.selected ? root.selected.routes.map(r => ({value: r, label: root.routeLabel(r)})) : []
                 enabled: !!root.selected && !!root.model.can_write && !root.model.busy
@@ -118,7 +118,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: master.implicitHeight
             visible: root.hasMixer
-            spacing: Style.spacing.lg
+            spacing: Commons.Style.spacing.lg
             Controls.ScrollView {
                 id: sourceViewport
                 Layout.fillWidth: true
@@ -130,16 +130,16 @@ Rectangle {
                 Controls.ScrollBar.horizontal.policy: Controls.ScrollBar.AsNeeded
                 Components.Label {
                     visible: !root.selected
-                    x: Style.spacing.huge
-                    y: Style.space(130)
-                    width: Math.max(0, sourceViewport.availableWidth - Style.spacing.huge * 2)
+                    x: Commons.Style.spacing.huge
+                    y: Commons.Style.space(130)
+                    width: Math.max(0, sourceViewport.availableWidth - Commons.Style.spacing.huge * 2)
                     text: "Connect a supported MiniFuse and start mf-service to see its hardware mixer."
                     horizontalAlignment: Text.AlignHCenter
-                    color: Color.muted
+                    color: Commons.Color.muted
                 }
                 Row {
                     id: strips
-                    spacing: Style.spacing.xs
+                    spacing: Commons.Style.spacing.xs
                     Repeater {
                         id: sourceStrips
                         model: root.selected ? root.selected.channels.length : 0
@@ -147,7 +147,7 @@ Rectangle {
                             required property int index
                             width: {
                                 const count = Math.max(1, root.selected ? root.selected.channels.length : 0)
-                                return Math.max(Style.space(100), (sourceViewport.availableWidth - strips.spacing * (count - 1)) / count)
+                                return Math.max(Commons.Style.space(100), (sourceViewport.availableWidth - strips.spacing * (count - 1)) / count)
                             }
                             channel: root.selected ? root.selected.channels[index] : null
                             source: channel ? channel.source : ""
@@ -162,7 +162,7 @@ Rectangle {
                     }
                 }
             }
-            Rectangle { implicitWidth: 1; Layout.fillHeight: true; color: Style.normalBorderFor(Color.foreground, Color.accent) }
+            Rectangle { implicitWidth: 1; Layout.fillHeight: true; color: Commons.Style.normalBorderFor(Commons.Color.foreground, Commons.Color.accent) }
             Components.ChannelStrip {
                 id: master
                 master: true
@@ -179,13 +179,14 @@ Rectangle {
         Flow {
             Layout.fillWidth: true
             visible: root.nativeLoopback
-            spacing: Style.spacing.sm
+            spacing: Commons.Style.spacing.sm
             Repeater {
                 id: nativeRoutes
                 model: [{field: "enabled", label: "Loopback"}, {field: "usb12", label: "Also record on USB 1–2"}, {field: "monitor", label: "Monitor mix"}]
                 Components.StateButton {
                     required property var modelData
-                    implicitWidth: contentItem.implicitWidth + Style.spacing.lg * 2
+                    objectName: "loopback-route-" + modelData.field
+                    implicitWidth: contentItem.implicitWidth + Commons.Style.spacing.lg * 2
                     text: modelData.label
                     tooltipText: modelData.label
                     active: !!root.model.loopback && root.model.loopback[modelData.field] === true
@@ -205,7 +206,8 @@ Rectangle {
                 onChanged: function(value) { root.send({action: "otg_routing", field: "main_to_otg", value: Number(value)}) }
             }
             Components.StateButton {
-                implicitWidth: contentItem.implicitWidth + Style.spacing.lg * 2
+                implicitWidth: contentItem.implicitWidth + Commons.Style.spacing.lg * 2
+                objectName: "otg-monitor"
                 text: "Monitor OTG"
                 tooltipText: "Use OTG playback as the monitoring source"
                 active: !!root.model.otg && root.model.otg.otg_to_monitor === true
@@ -219,73 +221,73 @@ Rectangle {
                 enabled: !!root.model.can_write && !root.model.busy
                 onChanged: function(value) { root.send({action: "otg_routing", field: "meter_source", value: Number(value)}) }
             }
-            Components.Label { text: "OTG in"; color: Color.muted; font.pixelSize: Style.font.caption }
+            Components.Label { text: "OTG in"; color: Commons.Color.muted; font.pixelSize: Commons.Style.font.caption }
             Repeater {
                 model: 2
                 Components.SignalMeter {
                     required property int index
-                    Layout.preferredHeight: Style.space(28)
-                    Layout.preferredWidth: Style.space(6)
+                    Layout.preferredHeight: Commons.Style.space(28)
+                    Layout.preferredWidth: Commons.Style.space(6)
                     available: !!root.meters
                     level: root.meters && root.meters.otg ? root.meters.otg[index] : null
                 }
             }
             Item { Layout.fillWidth: true }
         }
-        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Style.normalBorderFor(Color.foreground, Color.accent) }
+        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Commons.Style.normalBorderFor(Commons.Color.foreground, Commons.Color.accent) }
         Components.Label {
             visible: !!root.model.layout && root.model.layout !== "mf4_mixer"
             Layout.fillWidth: true
             text: root.nativeLoopback ? "Experimental hardware loopback · firmware " + ((root.model.firmware || {}).version || "unknown") + " · hardware acceptance pending" : root.model.layout === "initialization" ? "Initialization USB mode · audio controls unavailable" : "Experimental model support · hardware validation pending. Input indicators are read-only here; use MiniFuse Control for guided switch tests."
-            color: Color.muted
+            color: Commons.Color.muted
         }
         RowLayout {
             Layout.fillWidth: true
-            spacing: Style.spacing.sm
+            spacing: Commons.Style.spacing.sm
             Repeater {
                 model: root.model.input_controls || [{target: "inst1", label: "INST 1"}, {target: "inst2", label: "INST 2"}, {target: "phantom_power", label: "+48 V"}]
                 Rectangle {
                     required property var modelData
                     readonly property var switchValue: root.model.inputs ? root.model.inputs[modelData.target] : undefined
-                    implicitWidth: indicator.implicitWidth + Style.spacing.lg * 2
-                    implicitHeight: Style.space(28)
-                    color: switchValue === true ? Style.selectedFillFor(Color.foreground, Color.accent) : "transparent"
+                    implicitWidth: indicator.implicitWidth + Commons.Style.spacing.lg * 2
+                    implicitHeight: Commons.Style.space(28)
+                    color: switchValue === true ? Commons.Style.selectedFillFor(Commons.Color.foreground, Commons.Color.accent) : "transparent"
                     border.width: 1
-                    border.color: switchValue === true ? Color.accent : Style.normalBorderFor(Color.foreground, Color.accent)
-                    radius: Style.cornerRadius
+                    border.color: switchValue === true ? Commons.Color.accent : Commons.Style.normalBorderFor(Commons.Color.foreground, Commons.Color.accent)
+                    radius: Commons.Style.cornerRadius
                     Components.Label {
                         id: indicator
                         anchors.centerIn: parent
                         text: parent.modelData.label + " · " + (parent.switchValue === undefined ? "—" : parent.switchValue ? "ON" : "OFF")
-                        color: parent.switchValue === true ? Color.accent : Color.muted
-                        font.pixelSize: Style.font.caption
+                        color: parent.switchValue === true ? Commons.Color.accent : Commons.Color.muted
+                        font.pixelSize: Commons.Style.font.caption
                     }
                 }
             }
             Item { Layout.fillWidth: true }
-            Components.Label { visible: (!root.model.layout || root.model.layout === "mf4_mixer") && root.width > Style.space(700); text: "dB = mix gain · meters = dBFS"; font.pixelSize: Style.font.caption; color: Color.muted }
+            Components.Label { visible: (!root.model.layout || root.model.layout === "mf4_mixer") && root.width > Commons.Style.space(700); text: "dB = mix gain · meters = dBFS"; font.pixelSize: Commons.Style.font.caption; color: Commons.Color.muted }
         }
         RowLayout {
             id: footer
             Layout.fillWidth: true
-            spacing: Style.spacing.lg
+            spacing: Commons.Style.spacing.lg
             Components.Label {
                 id: feedback
                 Layout.fillWidth: true
-                Layout.preferredHeight: Style.space(40)
-                Layout.minimumHeight: Style.space(40)
-                Layout.maximumHeight: Style.space(40)
+                Layout.preferredHeight: Commons.Style.space(40)
+                Layout.minimumHeight: Commons.Style.space(40)
+                Layout.maximumHeight: Commons.Style.space(40)
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                color: root.model.uncertain ? Color.urgent : Color.muted
-                font.pixelSize: Style.font.caption
+                color: root.model.uncertain ? Commons.Color.urgent : Commons.Color.muted
+                font.pixelSize: Commons.Style.font.caption
                 text: root.model.message || (root.model.busy ? "Adjusting · waiting for device readback" : root.model.connected ? "Live device state · " + (root.meters ? "signal meters active" : "signal meters unavailable") : root.model.status)
             }
             Controls.ToolTip {
                 visible: feedbackHover.hovered && !!root.model.message
                 text: root.model.message || ""
                 delay: 500
-                font.family: Style.font.family
+                font.family: Commons.Style.font.family
             }
             HoverHandler { id: feedbackHover; parent: feedback }
             Ui.Button {
