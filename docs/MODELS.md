@@ -5,7 +5,7 @@ It never sends USB commands, applies firmware changes or substitutes an MF4
 layout for another model. Basic input indicators remain read-only; open the full
 application for INST, +48 V, direct-monitor changes and preset management.
 
-The native `loopback_mixer` profile requires an explicit backend opt-in, matching
+The native `loopback_mixer` profile is available automatically with backend 0.2.1, matching
 module capabilities and compatible firmware: MF1/MF2 1.5.x or OTG 1.0.x. The panel
 requires matching confirmed-state/inventory firmware metadata before allowing
 writes. Missing or unreviewed versions stay disabled. Hardware acceptance is
