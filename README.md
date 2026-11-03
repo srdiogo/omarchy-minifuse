@@ -57,7 +57,7 @@ descriptor, exact state and matching driver capabilities before enabling native
 loopback. Candidate families are MF1/MF2 1.5.x and OTG 1.0.x; unknown or
 unreviewed families stay unavailable. Backend 0.2.1 enables compatible controls automatically. Physical
 acceptance is still pending for every new model. MF4 retains its existing
-independent mixer. The installer preview linked above predates these additions.
+independent mixer.
 
 We are looking for owners of MF1, MF2 and MF2 OTG to help with LED checks,
 readbacks and minimal Windows USB captures. Follow the backend's
