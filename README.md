@@ -69,7 +69,7 @@ This test revision selects the correct input and native loopback layout for
 MiniFuse 1, MiniFuse 2 and MiniFuse 2 OTG. The backend checks the USB firmware
 descriptor, exact state and matching driver capabilities before enabling native
 loopback. Candidate families are MF1/MF2 1.5.x and OTG 1.0.x; unknown or
-unreviewed families stay unavailable. Explicit opt-in is required, and physical
+unreviewed families stay unavailable. Backend 0.2.1 enables compatible controls automatically. Physical
 acceptance is still pending for every new model. MF4 retains its existing
 independent mixer. The installer preview linked above predates these additions.
 
