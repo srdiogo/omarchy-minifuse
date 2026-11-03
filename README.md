@@ -31,23 +31,10 @@ indicators in the panel; their writable controls live in the full application.
 
 ## Install
 
-### New MiniFuse setup on Omarchy
-
-Download the archive and checksum from the
-[complete installation preview](https://github.com/srdiogo/minifuse-backend/releases/tag/installer-preview-2026-10-29).
-Verify and extract it, then run as your normal graphical-session user:
-
-```sh
-sha256sum -c minifuse-linux-installer-2026-10-29.tar.gz.sha256
-tar -xzf minifuse-linux-installer-2026-10-29.tar.gz
-cd minifuse-linux-installer-2026-10-29
-./install.sh --profile full
-```
-
-The plan includes the driver, service, full application, panel and boot/login
-startup. Use `--profile omarchy` for the backend and panel without the full
-application. Existing/customized installations may need additional options;
-read the [installer guide](https://github.com/srdiogo/minifuse-backend/blob/main/distribution/INSTALLER.md).
+Install the driver and service through [MiniFuse Control](https://github.com/srdiogo/minifuse-control/releases)
+or use the [standalone backend](https://github.com/srdiogo/minifuse-backend/blob/main/docs/INSTALL.md)
+for a panel-only setup. Panel archives are published in
+[Omarchy MiniFuse releases](https://github.com/srdiogo/omarchy-minifuse/releases).
 
 ### Backend already installed
 
@@ -60,8 +47,7 @@ omarchy bar move srdiogo.minifuse --section right
 ```
 
 The host plugin installer adds the panel only. It has no system-package,
-privilege or startup hooks. The separate complete installer prepares the
-backend. See [installation, updates and removal](docs/INSTALL.md).
+privilege or startup hooks. The MiniFuse Control packages include the backend. See [installation, updates and removal](docs/INSTALL.md).
 
 ## Model-support testing
 
