@@ -8,5 +8,31 @@
   "quickshell_version": "0.3.1",
   "qt_version_tested": "6.11.2",
   "python_minimum": "3.12",
-  "arch_repository_snapshot": "2026/09/13"
+  "arch_repository_snapshot": "2026/09/13",
+  "additional_tested_runtimes": [
+    {
+      "id": "qt612",
+      "omarchy_version": "4.0.6",
+      "installed_package_tested": "4.0.6-1",
+      "repository": "https://github.com/omacom/omarchy",
+      "revision": "237f1b4071a0bff2296c6d740ba2b9fd695ebfa0",
+      "archive_url": "https://codeload.github.com/omacom/omarchy/tar.gz/237f1b4071a0bff2296c6d740ba2b9fd695ebfa0",
+      "archive_sha256": "b6733ce083c98d7eabcbaafab4aaa277b526abe2c471f43a80280d1284bb6b38",
+      "quickshell_version": "0.3.2",
+      "qt_version_tested": "6.12.0",
+      "arch_repository_snapshot": "2026/11/01",
+      "arch_packages": {
+        "quickshell": "0.3.2-1",
+        "qt6-base": "6.12.0-3",
+        "qt6-declarative": "6.12.0-3"
+      },
+      "additional_local_quickshell_package": "0.3.2.r7.g2b4501a-1",
+      "additional_local_qt_declarative_package": "6.12.0-2"
+    }
+  ],
+  "arch_packages": {
+    "quickshell": "0.3.1-1",
+    "qt6-base": "6.11.2-3",
+    "qt6-declarative": "6.11.2-1"
+  }
 }

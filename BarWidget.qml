@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell
-import qs.Commons
+import qs.Commons as Commons
 
 Item {
     id: root
@@ -9,8 +9,8 @@ Item {
     property var settings: ({})
     readonly property var backend: bar && bar.shell ? bar.shell.serviceFor(moduleName) : null
     readonly property var model: backend ? backend.model : ({connected: false, status: "MiniFuse service entry unavailable"})
-    implicitWidth: bar && bar.vertical ? bar.barSize : label.implicitWidth + Style.space(20)
-    implicitHeight: bar ? bar.barSize : Style.space(32)
+    implicitWidth: bar && bar.vertical ? bar.barSize : label.implicitWidth + Commons.Style.space(20)
+    implicitHeight: bar ? bar.barSize : Commons.Style.space(32)
     activeFocusOnTab: true
     Accessible.role: Accessible.Button
     Accessible.name: "Toggle MiniFuse mixer panel"
@@ -23,27 +23,27 @@ Item {
     Keys.onSpacePressed: open()
     Rectangle {
         anchors.fill: parent
-        anchors.margins: Style.space(3)
-        radius: Style.cornerRadius
-        color: root.activeFocus || mouse.containsMouse ? Style.hoverFillFor(Color.foreground, Color.accent) : "transparent"
+        anchors.margins: Commons.Style.space(3)
+        radius: Commons.Style.cornerRadius
+        color: root.activeFocus || mouse.containsMouse ? Commons.Style.hoverFillFor(Commons.Color.foreground, Commons.Color.accent) : "transparent"
     }
     Text {
         id: label
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: "MF"
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.family: Commons.Style.font.family
+        font.pixelSize: Commons.Style.font.body
         font.bold: true
-        color: root.model.uncertain ? Color.urgent : (root.model.connected ? Color.foreground : Color.muted)
+        color: root.model.uncertain ? Commons.Color.urgent : (root.model.connected ? Commons.Color.foreground : Commons.Color.muted)
     }
     Rectangle {
-        width: Style.space(4)
+        width: Commons.Style.space(4)
         height: width
         radius: width / 2
         anchors.bottom: label.top
         anchors.horizontalCenter: label.horizontalCenter
-        color: root.model.can_write ? Color.accent : Color.muted
+        color: root.model.can_write ? Commons.Color.accent : Commons.Color.muted
     }
     MouseArea {
         id: mouse

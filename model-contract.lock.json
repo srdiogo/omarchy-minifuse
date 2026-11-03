@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/srdiogo/minifuse-backend",
+  "commit": "e7e1c822616e19fd59d153a9946beb7f4c139ac1",
+  "evidence_kind": "synthetic",
+  "fixtures": [
+    {
+      "path": "tests/contract/model-profiles-v1.json",
+      "source_path": "docs/models/profiles-v1.json",
+      "sha256": "c7a2b6da4adba968ce1a7b85ce58c11ac3e876fdd361c62c3d1378c1fe27b1cc"
+    },
+    {
+      "path": "tests/contract/loopback-v1.json",
+      "source_path": "docs/models/loopback-v1.json",
+      "sha256": "2aa6b1625fb92e338c7c60382057763ccb1bb8ececddfbcfaf63be8fe4e4fe93"
+    }
+  ]
+}

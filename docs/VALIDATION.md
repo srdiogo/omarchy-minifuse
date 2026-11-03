@@ -105,3 +105,50 @@ The installed user service and matching DKMS transport were validated on
 subscription test rejects a second subscription on the same socket; visibility
 changes must replace idle connections, preserving active gesture settlement.
 Disconnected-view construction and destruction are covered by the host check.
+
+## Experimental native model layouts
+
+On 2026-11-01, synthetic MF1/MF2/OTG native loopback layouts passed 34 Python
+client tests and 12 isolated host construction scenarios, including three native
+layouts, plus pointer/focus interaction checks. The host reference is c668141,
+Quickshell 0.3.1 / Qt 6.11.2; QML lint passed. Native state/firmware agreement,
+model sources, typed loopback/OTG routing, stereo restrictions and distinct meter
+shapes were checked without real-device writes. OTG renders were inspected for
+routing-label and fader alignment. Fixtures are pinned in
+[model-contract.lock.json](../model-contract.lock.json).
+
+Physical acceptance, including meter channel/scale and OTG second-host routing,
+remains pending separately for all new models. See [model boundaries](MODELS.md)
+and the backend's acceptance checklist before enabling experimental hardware
+writes. Additional desktop software acceptance is recorded below.
+
+## Qt 6.12 theme compatibility and hardware-free acceptance
+
+The undefined theme roles were caused by Qt 6.12 introducing a
+[QtQuick Color singleton](https://doc.qt.io/qt-6.12/qml-qtquick-color.html),
+which collided with the unqualified Omarchy theme type. Plugin components now
+resolve the Omarchy theme through `Commons.Color`; style references use the same
+qualified import. This retains live theme bindings and does not hardcode a
+replacement palette or modify the host. The installed panel was not replaced.
+
+| Isolated host | Runtime | Result |
+|---|---|---|
+| Omarchy 4.0.4, c668141 | Quickshell 0.3.1 / Qt 6.11.2 | 12 construction/theme scenarios and four pointer scenarios passed |
+| Omarchy 4.0.6, 237f1b4 | Quickshell 0.3.2 / Qt 6.12.0 | Same suite passed |
+| Omarchy 4.0.6, 237f1b4 | Installed Quickshell 0.3.2.r7.g2b4501a / Qt 6.12.0 | Same suite passed |
+
+The 34 Python client tests and QML lint passed. Host checks reject undefined-color,
+type and binding errors; they assert theme propagation, zero mutations during
+construction/theme/readback, stable fader delegates and safe disconnection.
+Pointer tests cover confirmed mute/solo state where supported, first-press
+source/pan/master gestures, final release, native routing, hidden/disabled
+unsupported controls, bar toggling and application handoff. A null-state guard
+keeps the hidden solo control safe during disconnect. The new runtime matrix is
+pinned in [host.lock.json](../host.lock.json) and covered by CI.
+
+These checks run isolated configurations with in-memory device fixtures. They
+never connect to the installed service or send USB requests. Offscreen platform
+warnings about window masks/Wayland do not establish a failure of device
+support; actual layer-shell/compositor behavior remains distinct from these
+rendering/pointer tests and from historical MF4 desktop acceptance. Firmware,
+audio paths, real LEDs and physical meter calibration remain owner tests.

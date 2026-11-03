@@ -7,6 +7,7 @@ import "Plugin/components" as Components
 ShellRoot {
     id: root
     property var model: VIEW
+    readonly property bool nativeLoopback: model.layout === "loopback_mixer"
     property var commands: []
     property int phase: 0
     property int dismissals: 0
@@ -40,7 +41,9 @@ ShellRoot {
             const next = JSON.parse(JSON.stringify(root.model))
             const mix = next.mixes.find(m => m.mix === next.selected)
             const channel = mix.channels.find(c => c.source === command.source)
-            if (command.action === "mute" || command.action === "solo") channel[command.action] = command.value
+            if (command.action === "loopback_routing") next.loopback[command.field] = command.value
+            else if (command.action === "otg_routing") next.otg[command.field] = command.value
+            else if (command.action === "mute" || command.action === "solo") channel[command.action] = command.value
             else {
                 if (command.action === "master") mix.master_db = command.value
                 else channel[command.action === "level" ? "level_db" : "pan"] = command.value
@@ -91,15 +94,34 @@ ShellRoot {
                     const firstColor = mute.contentItem.color.toString()
                     events.mouseClick(mute, mute.width / 2, mute.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
                     root.require(mute.active === initialMute && mute.contentItem.color.toString() !== firstColor, "Mute focus hid its confirmed state")
-                    const initialSolo = solo.active
-                    events.mouseClick(solo, solo.width / 2, solo.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
-                    root.require(solo.active !== initialSolo && solo.activeFocus, "Solo state is unclear while focused")
-                    events.mouseClick(solo, solo.width / 2, solo.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
-                    root.require(solo.active === initialSolo, "Solo did not return to its original state")
-                    events.keyClick(Qt.Key_Space, Qt.NoModifier, 0)
-                    root.require(solo.active !== initialSolo && solo.activeFocus, "Keyboard toggle lost its state or focus")
-                    events.keyClick(Qt.Key_Space, Qt.NoModifier, 0)
-                    root.require(solo.active === initialSolo, "Keyboard toggle did not restore the initial state")
+                    if (root.nativeLoopback) {
+                        root.require(!solo.visible && !solo.enabled, "Native loopback exposed solo")
+                        const stereoPan = root.find(panel, "pan-usb12")
+                        root.require(!!stereoPan && !stereoPan.visible && !stereoPan.enabled, "Stereo playback exposed pan")
+                        const monitor = root.find(panel, "loopback-route-monitor")
+                        root.require(!!monitor && monitor.enabled, "Loopback monitor route unavailable")
+                        const before = monitor.active
+                        events.mouseClick(monitor, monitor.width / 2, monitor.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
+                        const route = root.commands[root.commands.length - 1]
+                        root.require(route.action === "loopback_routing" && route.field === "monitor" && route.value === !before && monitor.active === !before, "Native routing lost its typed value or readback")
+                        if (root.model.profile.id === "mf2_otg") {
+                            const otg = root.find(panel, "otg-monitor")
+                            const original = otg.active
+                            events.mouseClick(otg, otg.width / 2, otg.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
+                            const command = root.commands[root.commands.length - 1]
+                            root.require(command.action === "otg_routing" && command.field === "otg_to_monitor" && command.value === !original && otg.active === !original, "OTG routing lost its typed value or readback")
+                        }
+                    } else {
+                        const initialSolo = solo.active
+                        events.mouseClick(solo, solo.width / 2, solo.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
+                        root.require(solo.active !== initialSolo && solo.activeFocus, "Solo state is unclear while focused")
+                        events.mouseClick(solo, solo.width / 2, solo.height / 2, Qt.LeftButton, Qt.NoModifier, 0)
+                        root.require(solo.active === initialSolo, "Solo did not return to its original state")
+                        events.keyClick(Qt.Key_Space, Qt.NoModifier, 0)
+                        root.require(solo.active !== initialSolo && solo.activeFocus, "Keyboard toggle lost its state or focus")
+                        events.keyClick(Qt.Key_Space, Qt.NoModifier, 0)
+                        root.require(solo.active === initialSolo, "Keyboard toggle did not restore the initial state")
+                    }
                     widget.open(); widget.open()
                     root.require(root.toggles === 2 && !root.panelOpen, "Bar button did not toggle the panel")
                     root.commands = []

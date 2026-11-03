@@ -24,23 +24,40 @@ jobs:
   host:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: qt611
+            snapshot: '2026/09/13'
+          - runtime: qt612
+            snapshot: '2026/11/01'
+    env:
+      MF_HOST_RUNTIME: ${{ matrix.runtime }}
+      MF_ARCH_SNAPSHOT: ${{ matrix.snapshot }}
     steps:
       - name: Install the tested runtime from an Arch repository snapshot
         run: |
-          printf 'Server = https://archive.archlinux.org/repos/2026/09/13/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
+          printf 'Server = https://archive.archlinux.org/repos/${{ matrix.snapshot }}/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
           pacman -Syyuu --noconfirm git python quickshell qt6-declarative curl inotify-tools ttf-dejavu
       - uses: actions/checkout@v4
       - name: Fetch the pinned host reference
         run: |
           python - <<'PY'
-          import hashlib,json,tarfile,urllib.request
+          import hashlib,json,os,tarfile,urllib.request
           from pathlib import Path
           lock=json.loads(Path('host.lock.json').read_text())
+          if os.environ['MF_HOST_RUNTIME'] != 'qt611':
+              lock=next(r for r in lock['additional_tested_runtimes'] if r['id']==os.environ['MF_HOST_RUNTIME'])
+          assert os.environ['MF_ARCH_SNAPSHOT']==lock['arch_repository_snapshot']
           data=urllib.request.urlopen(lock['archive_url'],timeout=60).read()
           assert hashlib.sha256(data).hexdigest()==lock['archive_sha256']
           Path('/tmp/host.tar.gz').write_bytes(data)
           with tarfile.open('/tmp/host.tar.gz') as archive:
               archive.extractall('/tmp/omarchy-reference',filter='data')
+          shell='/tmp/omarchy-reference/omarchy-'+lock['revision']+'/shell'
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('MF_HOST_SHELL='+shell+'\n')
           PY
       - name: Check real host components without a desktop session
         env:
@@ -48,14 +65,12 @@ jobs:
         run: |
           quickshell --version
           python - <<'PY'
-          import subprocess
-          packages=subprocess.check_output(['pacman','-Q','quickshell','qt6-base','qt6-declarative'],text=True)
-          assert 'quickshell 0.3.1-1' in packages and 'qt6-base 6.11.2-3' in packages and 'qt6-declarative 6.11.2-1' in packages,packages
+          import json,os,subprocess
+          from pathlib import Path
+          lock=json.loads(Path('host.lock.json').read_text())
+          if os.environ['MF_HOST_RUNTIME'] != 'qt611':
+              lock=next(r for r in lock['additional_tested_runtimes'] if r['id']==os.environ['MF_HOST_RUNTIME'])
+          installed=dict(line.split() for line in subprocess.check_output(['pacman','-Q','quickshell','qt6-base','qt6-declarative'],text=True).splitlines())
+          assert installed==lock['arch_packages'],installed
           PY
-          python tools/check_project.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
-          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
-          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 600 --scenario direct
-          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --width 480 --scenario uncertain
-          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --scenario offline
-          python tools/check_host.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell --scenario meters
-          python tools/check_interactions.py --host /tmp/omarchy-reference/omarchy-c668141e9c42b13c80c9ca4ea108e11708c5e8a5/shell
+          python tools/check_host_suite.py --host "$MF_HOST_SHELL"
